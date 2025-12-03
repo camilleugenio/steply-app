@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "446973340966",
+    "project_id": "steply-c9fec",
+    "storage_bucket": "steply-c9fec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:446973340966:android:e182e57c73e1e9960d25e7",
+        "android_client_info": {
+          "package_name": "com.camille.steply"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDoGimMhaBNVM1kRkJOv6Eaul-p8ay7CRo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
