@@ -5,12 +5,12 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +23,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.camille.steply.viewmodel.HomeViewModel
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
+
+import androidx.compose.foundation.border
+
+
+
+
+
+
+// -------------------- PALETTE --------------------
+private val Bg = Color(0xFFF4F1EC)        // crema/chiaro
+private val Card = Color.White
+private val TextPrimary = Color(0xFF111111)
+private val TextSecondary = Color(0xFF8E8E93)
+private val Divider = Color(0xFFE6E6EA)
+private val Accent = Color(0xFFFF8A00)    // arancione
 
 @Preview
 @Composable
@@ -30,325 +48,415 @@ fun Home(
     homeViewModel: HomeViewModel = viewModel()
 ) {
     val uiState by homeViewModel.uiState.collectAsState()
-    val dailyGoal = 6000 // obiettivo giornaliero passi
-    val progress = (uiState.steps.toFloat() / dailyGoal.toFloat())
-        .coerceIn(0f, 1f)
 
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Day, 1 = Week, 2 = Month
+    val dailyGoal = 6000
+    val progress = (uiState.steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
-    Scaffold(
-        containerColor = Color(0xFFFBFBFB)
-    ) { padding ->
+    var selectedTab by remember { mutableStateOf(0) } // 0=Day,1=Week,2=Month
+
+    Scaffold(containerColor = Bg) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
         ) {
-            // ---------- TOP BAR ----------
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = { /* TODO: settings */ }) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = Color.Black
-                    )
-                }
 
-                IconButton(onClick = { /* TODO: menu */ }) {
-                    Icon(
-                        imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Menu",
-                        tint = Color.Black
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            // ---------- TAB (Day / Week / Month) ----------
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color.Transparent,
-                contentColor = Color.Black,
-                indicator = {}
-            ) {
-                listOf("Day", "Week", "Month").forEachIndexed { index, label ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Text(
-                                text = label,
-                                color = if (selectedTab == index)
-                                    Color.Black
-                                else
-                                    Color(0xFF7E838C),
-                                fontWeight = if (selectedTab == index)
-                                    FontWeight.Bold
-                                else
-                                    FontWeight.Normal
-                            )
-                        }
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ---------- CERCHIO PASSI ----------
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(260.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // cerchio stile ring
-                    CircularProgressIndicator(
-                        progress = progress,
-                        modifier = Modifier.fillMaxSize(),
-                        strokeWidth = 22.dp,
-                        color = Color(0xFF00C6FF),
-                        trackColor = Color(0xFF16181F)
-                    )
-
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Yesterday",
-                            color = Color(0xFF00C6FF),
-                            fontSize = 18.sp
-                        )
-                        Text(
-                            text = uiState.steps.toString(),
-                            color = Color.Black,
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "of $dailyGoal steps",
-                            color = Color(0xFF7E838C),
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-
-            // ---------- STATISTICHE PICCOLE ----------
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(start = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatChip(
-                    title = "Streak",
-                    value = "4",
-                    subtitle = "days"
-                )
-                StatChip(
-                    title = "kcal",
-                    value = "348",
-                    subtitle = ""
-                )
-                StatChip(
-                    title = "km",
-                    value = "7.8",
-                    subtitle = ""
-                )
-                StatChip(
-                    title = "Time",
-                    value = "2:02",
-                    subtitle = "h"
-                )
-            }
-
-            Spacer(Modifier.height(20.dp))
-
-            // ---------- GRAFICO SETTIMANALE SEMPLIFICATO ----------
-            WeeklyStepsSection()
-
-            Spacer(Modifier.height(20.dp))
-
-            // ---------- CLASSIFICA / CARD IN FONDO ----------
-            LeaderboardCard(
-                name = "Camille Eugenio",
-                steps = uiState.steps,
-                label = "Yesterday"
+            TopBarLight(
+                weatherText = "Sunny  25°C",
+                onSettings = { },
+                onCalendar = { }
             )
+
+            Spacer(Modifier.height(10.dp))
+
+            Spacer(Modifier.height(14.dp))
+
+            // -------------------- CARD GRANDE CENTRALE --------------------
+            StepsMainCard(
+                dateLabel = "saturday",
+                dateValue = "3 January",
+                steps = uiState.steps,
+                dailyGoal = dailyGoal,
+                km = "1.10",       // TODO: collega ai tuoi dati
+                kcal = "31",       // TODO
+                onRefresh = { /* TODO */ }
+            )
+
+            Spacer(Modifier.height(14.dp))
+
+            // -------------------- Streak --------------------
+            StreakCard(streakDays = 28)
+
+            Spacer(Modifier.height(30.dp))
+
+            // -------------------- WEEKLY CARD --------------------
+            WeeklyStepsLight()
+
+            Spacer(Modifier.height(14.dp))
 
             Spacer(Modifier.height(24.dp))
         }
     }
 }
 
-
+// -------------------- TOP BAR --------------------
 @Composable
-private fun StatChip(
-    title: String,
-    value: String,
-    subtitle: String
+private fun TopBarLight(
+    weatherText: String,
+    onCalendar: () -> Unit,
+    onSettings: () -> Unit
 ) {
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        tonalElevation = 2.dp,
-        shadowElevation = 8.dp
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 10.dp),
-            horizontalAlignment = Alignment.Start
+
+        Text(
+            text = buildAnnotatedString {
+                withStyle(
+                    style = SpanStyle(
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary
+                    )
+                ) {
+                    append("Sunny")
+                }
+                withStyle(
+                    style = SpanStyle(
+                        color = TextSecondary
+                    )
+                ) {
+                    append("  25°C  ☀️")
+                }
+            },
+            fontSize = 14.sp
+        )
+
+
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Card,
+            shadowElevation = 6.dp
         ) {
-            Text(
-                text = title,
-                color = Color(0xFF7E838C),
-                fontSize = 12.sp
-            )
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = value,
-                    color = Color.Black,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                if (subtitle.isNotEmpty()) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = subtitle,
-                        color = Color(0xFF7E838C),
-                        fontSize = 12.sp
+            Row(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                // --- CALENDARIO ---
+                IconButton(
+                    onClick = onCalendar,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Calendar",
+                        tint = TextPrimary
                     )
                 }
+
+                // --- SETTINGS ---
+                IconButton(
+                    onClick = onSettings,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = TextPrimary
+                    )
+                }
+            }
+        }
+
+    }
+}
+
+
+// -------------------- CARD CENTRALE --------------------
+@Composable
+private fun StepsMainCard(
+    dateLabel: String,
+    dateValue: String,
+    steps: Int,
+    dailyGoal: Int,
+    km: String,
+    kcal: String,
+    onRefresh: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = Card,
+        shadowElevation = 18.dp
+    ){
+        Box(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // refresh in alto a destra (come l'icona nello screenshot)
+            IconButton(
+                onClick = onRefresh,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Refresh",
+                    tint = TextSecondary
+                )
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(dateLabel, color = TextSecondary, fontSize = 16.sp)
+                Text(
+                    dateValue,
+                    color = TextPrimary,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(220.dp) // dimensione del cerchio (regola qui)
+                        .background(
+                            color = Color.White,
+                            shape = CircleShape
+                        )
+                        .border(
+                            width = 4.dp,
+                            color = Color(0xFFE6E6EA),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+
+                        Text(
+                            text = steps.toString(),
+                            color = TextPrimary,
+                            fontSize = 64.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Text(
+                            text = "Steps",
+                            color = TextSecondary,
+                            fontSize = 14.sp
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+
+                        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                            InfoMini(value = km, label = "km")
+                            InfoMini(value = kcal, label = "calories")
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        Text(
+                            text = "Goal: $dailyGoal",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+
             }
         }
     }
 }
 
 @Composable
-private fun WeeklyStepsSection() {
+private fun InfoMini(value: String, label: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = value,
+            color = TextPrimary,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(text = label, color = TextSecondary, fontSize = 14.sp)
+    }
+}
+
+// -------------------- Streak --------------------
+@Composable
+fun StreakCard(
+    streakDays: Int
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = Color.White,
+        shadowElevation = 12.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+
+            // ---- HEADER (numero + icona) ----
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                Column {
+                    Text(
+                        text = streakDays.toString(),
+                        fontSize = 40.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFFF8A00) // arancione
+                    )
+
+                    Text(
+                        text = "day streak!",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFFFF8A00)
+                    )
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFFF6F6F6)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+
+                        Text(
+                            text = buildAnnotatedString {
+                                append("Keep your ")
+                                withStyle(
+                                    SpanStyle(
+                                        color = Color(0xFFFF8A00),
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                ) {
+                                    append("Perfect Streak")
+                                }
+                                append(" \nby walking every day!")
+                            },
+                            fontSize = 14.sp,
+                            color = Color(0xFF444444)
+                        )
+
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            text = "🔥",
+                            fontSize = 28.sp
+                        )
+                    }
+            }
+
+            }
+        }
+    }
+}
+
+
+// -------------------- WEEKLY CARD (chiara) --------------------
+@Composable
+private fun WeeklyStepsLight() {
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF11131B), RoundedCornerShape(24.dp))
-            .padding(16.dp)
+            .padding(horizontal = 16.dp)
     ) {
-        // Semplice "grafico" a colonne, giusto per imitare la schermata
-        val days = listOf("TUE", "WED", "THU", "FRI", "SAT", "SUN", "MON")
-        val values = listOf(3000, 3200, 5000, 7000, 4500, 8000, 2000)
-        val max = values.maxOrNull() ?: 1
+
+        val dailyGoal = 6000 // prova
+        val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
+        val dates = listOf("28", "29", "30", "31", "1", "2", "3")
+        val values = listOf(2000, 8000, 3200, 6100, 4100, 700, 1643)
+
+        val max = values.maxOrNull()?.coerceAtLeast(1) ?: 1
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(120.dp),
+                .height(160.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
             days.forEachIndexed { index, day ->
-                val fraction = values[index].toFloat() / max.toFloat()
+                val frac = values[index].toFloat() / max.toFloat()
+                val isSelected = index == days.lastIndex // sabato selezionato
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom
                 ) {
+
+                    // --- BARRA ---
                     Box(
                         modifier = Modifier
                             .width(10.dp)
-                            .height((80 * fraction).dp)
+                            .height((90 * frac).dp)
                             .background(
-                                if (day == "SUN")
-                                    Color(0xFF00C6FF)
-                                else
-                                    Color(0xFF2A3040),
-                                RoundedCornerShape(50)
+                                color = when {
+                                    values[index] >= dailyGoal -> Color(0xFF4CAF50) // 🟢 verde
+                                    else -> Accent                                // 🟠 arancione
+                                },
+                                shape = RoundedCornerShape(50)
                             )
                     )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = day,
-                        color = if (day == "SUN") Color.White else Color(0xFF7E838C),
-                        fontSize = 11.sp
-                    )
+
+                    Spacer(Modifier.height(10.dp))
+
+                    // --- TESTI SOTTO ---
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = day.lowercase(),
+                            color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        Spacer(Modifier.height(4.dp))
+
+                        Text(
+                            text = dates[index],
+                            color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-@Composable
-private fun LeaderboardCard(
-    name: String,
-    steps: Int,
-    label: String
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        color = Color(0xFF11131B)
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .background(Color(0xFF00C6FF), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "CE",
-                        color = Color.Black,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = name,
-                        color = Color.White,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = label,
-                        color = Color(0xFF7E838C),
-                        fontSize = 12.sp
-                    )
-                }
-            }
-
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = steps.toString(),
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    textAlign = TextAlign.Right
-                )
-            }
-        }
-    }
-}
 
 @Preview(showBackground = true)
 @Composable
 private fun HomePreview() {
-    // in preview non abbiamo il vero viewModel, quindi qui dovresti
-    // usare una UI finta oppure commentare questa preview se dà errore.
+    // Preview "semplice": se il tuo viewModel in preview dà problemi, puoi
+    // commentare questa preview oppure creare un FakeViewModel.
 }
