@@ -79,9 +79,9 @@ fun Home(
                 dateValue = "3 January",
                 steps = uiState.steps,
                 dailyGoal = dailyGoal,
-                km = "1.10",       // TODO: collega ai tuoi dati
-                kcal = "31",       // TODO
-                onRefresh = { /* TODO */ }
+                km = "1.10",       // collega ai tuoi dati
+                kcal = "31",
+                onRefresh = { /*  */ }
             )
 
             Spacer(Modifier.height(14.dp))
