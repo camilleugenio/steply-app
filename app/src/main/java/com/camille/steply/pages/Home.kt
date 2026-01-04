@@ -60,7 +60,7 @@ private val Accent = Color(0xFFFF8A00)
 
 
 
-//@Preview
+@Preview
 @Composable
 fun Home() {
     val context = LocalContext.current
@@ -71,6 +71,35 @@ fun Home() {
     )
 
     val uiState by homeViewModel.uiState.collectAsState()
+
+    val isEmulator = remember {
+        val fp = android.os.Build.FINGERPRINT.lowercase()
+        val model = android.os.Build.MODEL.lowercase()
+        val brand = android.os.Build.BRAND.lowercase()
+        val device = android.os.Build.DEVICE.lowercase()
+        fp.contains("generic") ||
+                fp.contains("emulator") ||
+                model.contains("emulator") ||
+                model.contains("sdk") ||
+                brand.contains("generic") ||
+                device.contains("generic")
+    }
+
+
+
+    DisposableEffect(Unit) {
+        if (isEmulator) {
+            homeViewModel.startAccelerometerSimulation()
+        } else {
+            homeViewModel.startStepUpdates()
+        }
+
+        onDispose {
+            homeViewModel.stopAccelerometerSimulation()
+            homeViewModel.stopStepUpdates()
+        }
+    }
+
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()

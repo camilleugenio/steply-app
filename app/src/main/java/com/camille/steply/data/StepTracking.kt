@@ -27,6 +27,13 @@ import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
+import kotlin.math.sqrt
+
+import androidx.datastore.preferences.core.intPreferencesKey
+
+
+
+
 // -------------------- TIME UTILS --------------------
 
 fun todayMidnightEpochMillis(
@@ -59,7 +66,13 @@ class StepDataStore(private val context: Context) {
 
     private val KEY_DAY_START = longPreferencesKey("day_start_epoch")
     private val KEY_BASE_STEPS = longPreferencesKey("base_steps_from_boot")
+    private val KEY_SIM_STEPS_TODAY = intPreferencesKey("sim_steps_today")
+    private val KEY_SIM_DAY_START = longPreferencesKey("sim_day_start")
 
+    private val dataStore = context.dataStore
+
+
+    // -------------------- Versione Mobile --------------------
     suspend fun getDayStartEpoch(): Long {
         return context.dataStore.data.first()[KEY_DAY_START] ?: 0L
     }
@@ -77,6 +90,24 @@ class StepDataStore(private val context: Context) {
             prefs[KEY_BASE_STEPS] = baseStepsFromBoot
         }
     }
+
+    // -------------------- Versione Emulator --------------------
+    suspend fun getSimDayStart(): Long {
+        return dataStore.data.first()[KEY_SIM_DAY_START] ?: 0L
+    }
+
+    suspend fun setSimDayStart(value: Long) {
+        dataStore.edit { it[KEY_SIM_DAY_START] = value }
+    }
+
+    suspend fun getSimStepsToday(): Int {
+        return dataStore.data.first()[KEY_SIM_STEPS_TODAY] ?: 0
+    }
+
+    suspend fun setSimStepsToday(value: Int) {
+        dataStore.edit { it[KEY_SIM_STEPS_TODAY] = value }
+    }
+
 }
 
 // -------------------- STEP SENSOR --------------------
@@ -197,3 +228,50 @@ class MidnightBaselineWorker(
         }
     }
 }
+
+// -------------------- ACCELEROMETRO --------------------
+
+class AccelerometerStepSimulator(
+    context: Context,
+    private val onStep: () -> Unit
+) : SensorEventListener {
+
+    private val sensorManager =
+        context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+
+    private val accelerometer =
+        sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+    private var lastStepTime = 0L
+    private val threshold = 11.5f          // soglia movimento
+    private val minStepInterval = 400L     // ms tra passi
+
+    fun start() {
+        sensorManager.registerListener(
+            this,
+            accelerometer,
+            SensorManager.SENSOR_DELAY_GAME
+        )
+    }
+
+    fun stop() {
+        sensorManager.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent) {
+        val x = event.values[0]
+        val y = event.values[1]
+        val z = event.values[2]
+
+        val magnitude = sqrt(x * x + y * y + z * z)
+
+        val now = System.currentTimeMillis()
+        if (magnitude > threshold && now - lastStepTime > minStepInterval) {
+            lastStepTime = now
+            onStep()
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+}
+

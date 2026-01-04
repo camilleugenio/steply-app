@@ -17,7 +17,10 @@ class HomeVmFactory(
             val repo = LocationRepository(app.applicationContext, fused)
 
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(repo) as T
+            return HomeViewModel(
+                    app.applicationContext,
+            repo
+            ) as T
         }
 
         throw IllegalArgumentException("Unknown ViewModel class: $modelClass")
