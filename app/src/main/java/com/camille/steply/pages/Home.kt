@@ -28,8 +28,10 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
 
 import androidx.compose.foundation.border
-
-
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Whatshot
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.graphics.vector.ImageVector
 
 
 
@@ -41,6 +43,9 @@ private val TextPrimary = Color(0xFF111111)
 private val TextSecondary = Color(0xFF8E8E93)
 private val Divider = Color(0xFFE6E6EA)
 private val Accent = Color(0xFFFF8A00)    // arancione
+
+
+
 
 @Preview
 @Composable
@@ -54,11 +59,24 @@ fun Home(
 
     var selectedTab by remember { mutableStateOf(0) } // 0=Day,1=Week,2=Month
 
-    Scaffold(containerColor = Bg) { padding ->
+    Scaffold(
+        containerColor = Bg,
+        bottomBar = {
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 26.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                BottomPillNavBar(
+                    selectedIndex = selectedTab,
+                    onSelect = { selectedTab = it }
+                )
+            }
+        }
+    ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(padding) // IMPORTANTISSIMO: include lo spazio della navbar
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -69,8 +87,6 @@ fun Home(
                 onCalendar = { }
             )
 
-            Spacer(Modifier.height(10.dp))
-
             Spacer(Modifier.height(14.dp))
 
             // -------------------- CARD GRANDE CENTRALE --------------------
@@ -79,26 +95,25 @@ fun Home(
                 dateValue = "3 January",
                 steps = uiState.steps,
                 dailyGoal = dailyGoal,
-                km = "1.10",       // collega ai tuoi dati
+                km = "1.10",
                 kcal = "31",
-                onRefresh = { /*  */ }
+                onRefresh = { }
             )
 
             Spacer(Modifier.height(14.dp))
 
-            // -------------------- Streak --------------------
+            // -------------------- STREAK --------------------
             StreakCard(streakDays = 28)
 
             Spacer(Modifier.height(30.dp))
 
-            // -------------------- WEEKLY CARD --------------------
+            // -------------------- WEEKLY --------------------
             WeeklyStepsLight()
-
-            Spacer(Modifier.height(14.dp))
 
             Spacer(Modifier.height(24.dp))
         }
     }
+
 }
 
 // -------------------- TOP BAR --------------------
@@ -124,7 +139,7 @@ private fun TopBarLight(
                         color = TextSecondary
                     )
                 ) {
-                    append("Sunny")
+                    append("Rome")
                 }
                 withStyle(
                     style = SpanStyle(
@@ -277,7 +292,6 @@ private fun StepsMainCard(
                         )
                     }
                 }
-
             }
         }
     }
@@ -460,3 +474,76 @@ private fun HomePreview() {
     // Preview "semplice": se il tuo viewModel in preview dà problemi, puoi
     // commentare questa preview oppure creare un FakeViewModel.
 }
+
+@Composable
+fun BottomPillNavBar(
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val items = listOf(
+        NavItem("Steps", Icons.Default.DirectionsRun),
+        NavItem("Activity", Icons.Default.Whatshot),
+        NavItem("Profile", Icons.Default.Person)
+    )
+
+    // colori (usa i tuoi se li hai già)
+    val container = Color(0xFFF3F0EC)          // sfondo pill
+    val selectedBg = Color(0xFFE2E2E2)         // bg tab selezionato
+    val textNormal = Color(0xFF111111)
+    val accent = Accent                        // il tuo arancione
+    val shadow = 12.dp
+
+    Surface(
+        modifier = modifier
+            .width(360.dp)
+            .padding(vertical = 8.dp),
+        shape = RoundedCornerShape(999.dp),
+        color = container,
+        shadowElevation = shadow
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+        items.forEachIndexed { index, item ->
+                val selected = index == selectedIndex
+
+                Surface(
+                    onClick = { onSelect(index) },
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (selected) selectedBg else Color.Transparent,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .widthIn(min = 96.dp)
+                            .padding(vertical = 6.dp, horizontal = 12.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.label,
+                            tint = if (selected) accent else textNormal,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = item.label,
+                            color = if (selected) accent else textNormal,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class NavItem(
+    val label: String,
+    val icon: ImageVector
+)
