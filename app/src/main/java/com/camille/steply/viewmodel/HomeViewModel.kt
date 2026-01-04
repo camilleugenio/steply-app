@@ -15,9 +15,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.roundToInt
 
 data class HomeUiState(
     val steps: Int = 0,
+    val km: String = "0.00",
+    val kcal: String = "0",
     val isTracking: Boolean = false,
     val currentDate: String = "",
     val currentDayname: String = "",
@@ -27,14 +31,13 @@ data class HomeUiState(
 )
 
 class HomeViewModel(
-    private val appContext: Context,                 // ✅ aggiunto
+    private val appContext: Context,
     private val locationRepository: LocationRepository
 ) : ViewModel() {
 
     private val dateFormatter = DateTimeFormatter.ofPattern("d MMMM")
     private val dayFormatter = DateTimeFormatter.ofPattern("EEEE")
 
-    // ✅ step components
     private val store = StepDataStore(appContext)
     private val sensor = StepSensor(appContext)
     private var listening = false
@@ -102,7 +105,16 @@ class HomeViewModel(
                     }
 
                     val todaySteps = (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
-                    _uiState.update { it.copy(steps = todaySteps) }
+                    val kmText = stepsToKm(todaySteps)      // String "1.23"
+                    val kmValue = kmText.toDouble()         // Double 1.23 (ok perché Locale.US)
+                    val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+                    _uiState.update {
+                        it.copy(
+                            steps = todaySteps,
+                            km = kmText,
+                            kcal = kcalValue.toString()
+                        )
+                    }
                 }
             }
         }
@@ -115,13 +127,32 @@ class HomeViewModel(
         _uiState.update { it.copy(isTracking = false) }
     }
 
+    // -------------------- Steps -> Km --------------------
+
+    private fun stepsToKm(steps: Int, stepLengthMeters: Double = 0.74): String {
+        val km = (steps * stepLengthMeters) / 1000.0
+        return String.format(Locale.US, "%.2f", km)
+    }
+
+    // -------------------- Kcal --------------------
+
+    private fun kmToKcal(km: Double, weightKg: Double = 65.0): Int {
+        // ~0.75 kcal per kg per km (walking)
+        return (weightKg * km * 0.75).roundToInt()
+    }
+
+    private fun formatKm(km: Double): String {
+        return String.format(Locale.getDefault(), "%.2f", km)
+    }
+
+
     // -------------------- DEBUG (eliminare) --------------------
     fun addTestStep(amount: Int = 200) {
         _uiState.update { it.copy(steps = it.steps + amount) }
     }
 
     fun resetSteps() {
-        _uiState.update { it.copy(steps = 0) }
+        _uiState.update { it.copy(steps = 0, km = "0.00") }
     }
 
     override fun onCleared() {
@@ -142,7 +173,18 @@ class HomeViewModel(
             viewModelScope.launch {
                 val current = store.getSimStepsToday() + 1
                 store.setSimStepsToday(current)
-                _uiState.update { it.copy(steps = current) }
+
+                val kmText = stepsToKm(current)          // "1.23"
+                val kmValue = kmText.toDouble()          // 1.23
+                val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+
+                _uiState.update {
+                    it.copy(
+                        steps = current,
+                        km = kmText,
+                        kcal = kcalValue.toString()
+                    )
+                }
             }
         }
         accelSimulator?.start()
@@ -161,12 +203,31 @@ class HomeViewModel(
             if (savedDayStart != midnight) {
                 store.setSimDayStart(midnight)
                 store.setSimStepsToday(0)
-                _uiState.update { it.copy(steps = 0) }
+
+                _uiState.update {
+                    it.copy(
+                        steps = 0,
+                        km = stepsToKm(0),
+                        kcal = "0"
+                    )
+                }
             } else {
                 val saved = store.getSimStepsToday()
-                _uiState.update { it.copy(steps = saved) }
+
+                val kmText = stepsToKm(saved)
+                val kmValue = kmText.toDouble()
+                val kcalValue = (70.0 * kmValue * 0.75).toInt()
+
+                _uiState.update {
+                    it.copy(
+                        steps = saved,
+                        km = kmText,
+                        kcal = kcalValue.toString()
+                    )
+                }
             }
         }
     }
+
 
 }

@@ -181,8 +181,8 @@ fun Home() {
                 dateValue = uiState.currentDate,
                 steps = uiState.steps,
                 dailyGoal = dailyGoal,
-                km = "1.10",
-                kcal = "31",
+                km = uiState.km,
+                kcal = uiState.kcal,
                 onRefresh = { }
             )
 
