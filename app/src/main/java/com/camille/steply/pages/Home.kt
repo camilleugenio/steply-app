@@ -37,12 +37,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 
 
 // -------------------- PALETTE --------------------
-private val Bg = Color(0xFFF4F1EC)        // crema/chiaro
+private val Bg = Color(0xFFF4F1EC)
 private val Card = Color.White
 private val TextPrimary = Color(0xFF111111)
 private val TextSecondary = Color(0xFF8E8E93)
 private val Divider = Color(0xFFE6E6EA)
-private val Accent = Color(0xFFFF8A00)    // arancione
+private val Accent = Color(0xFFFF8A00)
 
 
 
@@ -57,7 +57,7 @@ fun Home(
     val dailyGoal = 6000
     val progress = (uiState.steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
-    var selectedTab by remember { mutableStateOf(0) } // 0=Day,1=Week,2=Month
+    var selectedTab by remember { mutableStateOf(0) }
 
     Scaffold(
         containerColor = Bg,
@@ -76,7 +76,7 @@ fun Home(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding) // IMPORTANTISSIMO: include lo spazio della navbar
+                .padding(padding)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .verticalScroll(rememberScrollState())
         ) {
@@ -107,7 +107,7 @@ fun Home(
 
             Spacer(Modifier.height(30.dp))
 
-            // -------------------- WEEKLY --------------------
+            // -------------------- DASHBOARD --------------------
             WeeklyStepsLight()
 
             Spacer(Modifier.height(24.dp))
@@ -213,7 +213,7 @@ private fun StepsMainCard(
         Box(
             modifier = Modifier.fillMaxWidth()
         ) {
-            // refresh in alto a destra (come l'icona nello screenshot)
+            // refresh
             IconButton(
                 onClick = onRefresh,
                 modifier = Modifier
@@ -246,7 +246,7 @@ private fun StepsMainCard(
 
                 Box(
                     modifier = Modifier
-                        .size(220.dp) // dimensione del cerchio (regola qui)
+                        .size(220.dp)
                         .background(
                             color = Color.White,
                             shape = CircleShape
@@ -326,7 +326,6 @@ fun StreakCard(
             modifier = Modifier.padding(20.dp)
         ) {
 
-            // ---- HEADER (numero + icona) ----
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -338,7 +337,7 @@ fun StreakCard(
                         text = streakDays.toString(),
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFFF8A00) // arancione
+                        color = Color(0xFFFF8A00)
                     )
 
                     Text(
@@ -394,7 +393,7 @@ fun StreakCard(
 }
 
 
-// -------------------- WEEKLY CARD (chiara) --------------------
+// -------------------- DASHBOARD --------------------
 @Composable
 private fun WeeklyStepsLight() {
 
@@ -420,22 +419,21 @@ private fun WeeklyStepsLight() {
         ) {
             days.forEachIndexed { index, day ->
                 val frac = values[index].toFloat() / max.toFloat()
-                val isSelected = index == days.lastIndex // sabato selezionato
+                val isSelected = index == days.lastIndex
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom
                 ) {
 
-                    // --- BARRA ---
                     Box(
                         modifier = Modifier
                             .width(10.dp)
                             .height((90 * frac).dp)
                             .background(
                                 color = when {
-                                    values[index] >= dailyGoal -> Color(0xFF4CAF50) // 🟢 verde
-                                    else -> Accent                                // 🟠 arancione
+                                    values[index] >= dailyGoal -> Color(0xFF4CAF50)
+                                    else -> Accent
                                 },
                                 shape = RoundedCornerShape(50)
                             )
@@ -443,7 +441,6 @@ private fun WeeklyStepsLight() {
 
                     Spacer(Modifier.height(10.dp))
 
-                    // --- TESTI SOTTO ---
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
                             text = day.lowercase(),
@@ -487,11 +484,10 @@ fun BottomPillNavBar(
         NavItem("Profile", Icons.Default.Person)
     )
 
-    // colori (usa i tuoi se li hai già)
-    val container = Color(0xFFF3F0EC)          // sfondo pill
-    val selectedBg = Color(0xFFE2E2E2)         // bg tab selezionato
+    val container = Color(0xFFF3F0EC)
+    val selectedBg = Color(0xFFE2E2E2)
     val textNormal = Color(0xFF111111)
-    val accent = Accent                        // il tuo arancione
+    val accent = Accent
     val shadow = 12.dp
 
     Surface(
