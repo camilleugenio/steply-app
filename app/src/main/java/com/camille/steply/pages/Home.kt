@@ -1,5 +1,10 @@
 package com.camille.steply.pages
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -33,6 +38,14 @@ import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
 
+import android.app.Application
+import androidx.compose.ui.platform.LocalContext
+import com.camille.steply.viewmodel.HomeVmFactory
+
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+
 
 
 
@@ -47,17 +60,54 @@ private val Accent = Color(0xFFFF8A00)
 
 
 
-@Preview
+//@Preview
 @Composable
-fun Home(
-    homeViewModel: HomeViewModel = viewModel()
-) {
+fun Home() {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    val homeViewModel: HomeViewModel = viewModel(
+        factory = HomeVmFactory(context.applicationContext as Application)
+    )
+
     val uiState by homeViewModel.uiState.collectAsState()
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) homeViewModel.refreshPlace()
+    }
+
+    // ✅ Refresh location EVERY TIME the app/screen is resumed (opened again)
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val granted = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (granted) {
+                    homeViewModel.refreshPlace()
+                } else {
+                    // Optional: request permission when opening the app
+                    locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                }
+            }
+        }
+
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val dailyGoal = 6000
     val progress = (uiState.steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
     var selectedTab by remember { mutableStateOf(0) }
+
+    LaunchedEffect(Unit) {
+        homeViewModel.refreshPlace()
+    }
 
 
 
@@ -84,6 +134,11 @@ fun Home(
         ) {
 
             TopBarLight(
+                placeText = when {
+                    uiState.locationLoading -> "Locating..."
+                    uiState.locationError != null -> "Err: ${uiState.locationError}"
+                    else -> uiState.currentPlacename
+                },
                 weatherText = "Sunny  25°C",
                 onSettings = { },
                 onCalendar = { }
@@ -121,6 +176,7 @@ fun Home(
 // -------------------- TOP BAR --------------------
 @Composable
 private fun TopBarLight(
+    placeText: String,
     weatherText: String,
     onCalendar: () -> Unit,
     onSettings: () -> Unit
@@ -141,14 +197,14 @@ private fun TopBarLight(
                         color = TextSecondary
                     )
                 ) {
-                    append("Rome")
+                    append(placeText)
                 }
                 withStyle(
                     style = SpanStyle(
                         color = TextSecondary
                     )
                 ) {
-                    append("  25°C  ☀️")
+                    append(weatherText)
                 }
             },
             fontSize = 14.sp
@@ -467,12 +523,7 @@ private fun WeeklyStepsLight() {
 }
 
 
-@Preview(showBackground = true)
-@Composable
-private fun HomePreview() {
-    // Preview "semplice": se il tuo viewModel in preview dà problemi, puoi
-    // commentare questa preview oppure creare un FakeViewModel.
-}
+
 
 @Composable
 fun BottomPillNavBar(
