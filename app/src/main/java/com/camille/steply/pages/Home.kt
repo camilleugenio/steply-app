@@ -59,6 +59,8 @@ fun Home(
 
     var selectedTab by remember { mutableStateOf(0) }
 
+
+
     Scaffold(
         containerColor = Bg,
         bottomBar = {
@@ -91,8 +93,8 @@ fun Home(
 
             // -------------------- CARD GRANDE CENTRALE --------------------
             StepsMainCard(
-                dateLabel = "saturday",
-                dateValue = "3 January",
+                dateLabel = uiState.currentDayname,
+                dateValue = uiState.currentDate,
                 steps = uiState.steps,
                 dailyGoal = dailyGoal,
                 km = "1.10",
