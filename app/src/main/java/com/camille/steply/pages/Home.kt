@@ -135,7 +135,7 @@ fun Home() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val dailyGoal = 50
+    val dailyGoal = uiState.dailyGoal
     val progress = (uiState.steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
     var selectedTab by remember { mutableStateOf(0) }
@@ -195,7 +195,7 @@ fun Home() {
             Spacer(Modifier.height(14.dp))
 
             // -------------------- STREAK --------------------
-            StreakCard(streakDays = 28)
+            StreakCard(streakDays = uiState.streakDays)
 
             Spacer(Modifier.height(30.dp))
 
@@ -342,26 +342,26 @@ private fun StepsMainCard(
 
                 Spacer(Modifier.height(20.dp))
 
-                val progress = (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+                val progress = if (dailyGoal <= 0) 0f
+                else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
                 val progressColor = when {
-                    progress <= 0.3f -> {
-                        // rosso -> arancione (0%..30%)
+                    progress <= 0.5f -> {
                         lerp(
                             start = Color(0xFFE53935),   // rosso
-                            stop = Accent,               // arancione
-                            fraction = progress / 0.3f
+                            stop = Color(0xFFFFEB3B),   // giallo
+                            fraction = progress / 0.5f
                         )
                     }
                     else -> {
-                        // arancione -> verde (30%..100%)
                         lerp(
-                            start = Accent,               // arancione
-                            stop = Color(0xFF4CAF50),     // verde
-                            fraction = (progress - 0.3f) / 0.7f
+                            start = Color(0xFFFFEB3B),   // giallo
+                            stop = Color(0xFF4CAF50),   // verde
+                            fraction = (progress - 0.5f) / 0.5f
                         )
                     }
                 }
+
 
 
                 Box(
@@ -387,8 +387,8 @@ private fun StepsMainCard(
                         // progress ring (arancione) — parte dall'alto e va in senso orario
                         drawArc(
                             color = progressColor,
-                            startAngle = -90f,                 // ore 12
-                            sweepAngle = 360f * progress,      // senso orario
+                            startAngle = -90f,
+                            sweepAngle = 360f * progress,
                             useCenter = false,
                             topLeft = Offset(inset, inset),
                             size = Size(size.width - strokeWidth, size.height - strokeWidth),
@@ -501,17 +501,30 @@ fun StreakCard(
 
 
                         Text(
+                            modifier = Modifier.weight(1f),
                             text = buildAnnotatedString {
-                                append("Keep your ")
-                                withStyle(
-                                    SpanStyle(
-                                        color = Color(0xFFFF8A00),
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                ) {
-                                    append("Perfect Streak")
+                                if (streakDays >= 1) {
+                                    append("Keep your ")
+                                    withStyle(
+                                        SpanStyle(
+                                            color = Color(0xFFFF8A00),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    ) {
+                                        append("Perfect Streak")
+                                    }
+                                    append(" \nby walking every day!")
+                                } else {
+                                    withStyle(
+                                        SpanStyle(
+                                            color = Color(0xFFFF8A00),
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    ) {
+                                        append("You Can Do It!")
+                                    }
+                                    append(" \nStart your streak now.")
                                 }
-                                append(" \nby walking every day!")
                             },
                             fontSize = 14.sp,
                             color = Color(0xFF444444)
@@ -520,7 +533,7 @@ fun StreakCard(
                         Spacer(Modifier.width(10.dp))
                         Text(
                             text = "🔥",
-                            fontSize = 28.sp
+                            fontSize = 32.sp
                         )
                     }
             }

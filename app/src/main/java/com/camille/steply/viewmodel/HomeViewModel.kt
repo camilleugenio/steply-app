@@ -22,6 +22,8 @@ data class HomeUiState(
     val steps: Int = 0,
     val km: String = "0.00",
     val kcal: String = "0",
+    val streakDays: Int = 0,
+    val dailyGoal: Int = 50,
     val isTracking: Boolean = false,
     val currentDate: String = "",
     val currentDayname: String = "",
@@ -55,6 +57,7 @@ class HomeViewModel(
 
     init {
         refreshWeeklySteps(_uiState.value.currentDateIso)
+        refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
     }
 
 
@@ -114,6 +117,7 @@ class HomeViewModel(
                             )
                         }
                         refreshWeeklySteps(now.toString())
+                        refreshStreak(now.toString(), _uiState.value.dailyGoal)
                     }
 
                     // reboot-safe
@@ -138,6 +142,7 @@ class HomeViewModel(
                     }
 
                     refreshWeeklySteps(_uiState.value.currentDateIso)
+                    refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
 
                 }
             }
@@ -213,6 +218,7 @@ class HomeViewModel(
                     )
                 }
                 refreshWeeklySteps(_uiState.value.currentDateIso)
+                refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
             }
         }
         accelSimulator?.start()
@@ -243,6 +249,9 @@ class HomeViewModel(
                         currentDateIso = now.toString()
                     )
                 }
+                refreshWeeklySteps(now.toString())
+                refreshStreak(now.toString(), _uiState.value.dailyGoal)
+
             } else {
                 val saved = store.getSimStepsToday()
 
@@ -261,6 +270,8 @@ class HomeViewModel(
         }
     }
 
+    // -------------------- DASHBOARD--------------------
+
     private fun refreshWeeklySteps(todayIso: String) {
         viewModelScope.launch {
             val today = LocalDate.parse(todayIso)
@@ -273,5 +284,38 @@ class HomeViewModel(
             _uiState.update { it.copy(weeklySteps = values) }
         }
     }
+
+    // -------------------- STREAK --------------------
+
+    private fun refreshStreak(todayIso: String, dailyGoal: Int) {
+        viewModelScope.launch {
+            if (dailyGoal <= 0) {
+                _uiState.update { it.copy(streakDays = 0) }
+                return@launch
+            }
+
+            val today = LocalDate.parse(todayIso)
+
+            // Leggo i passi di oggi dallo storico
+            val todaySteps = store.getStepsForDateIso(todayIso)
+
+            // ✅ Se oggi non hai ancora raggiunto il goal, la streak “corrente”
+            // è quella che stai mantenendo da ieri.
+            val startOffset = if (todaySteps >= dailyGoal) 0 else 1
+
+            var streak = 0
+            // limite di sicurezza
+            for (i in startOffset until 365) {
+                val dIso = today.minusDays(i.toLong()).toString()
+                val steps = store.getStepsForDateIso(dIso)
+
+                if (steps >= dailyGoal) streak++
+                else break
+            }
+
+            _uiState.update { it.copy(streakDays = streak) }
+        }
+    }
+
 
 }
