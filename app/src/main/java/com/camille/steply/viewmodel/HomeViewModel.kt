@@ -25,6 +25,7 @@ data class HomeUiState(
     val isTracking: Boolean = false,
     val currentDate: String = "",
     val currentDayname: String = "",
+    val currentDateIso: String = "",
     val currentPlacename: String = "-  ",
     val locationLoading: Boolean = false,
     val locationError: String? = null
@@ -45,7 +46,8 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(
         HomeUiState(
             currentDate = LocalDate.now().format(dateFormatter),
-            currentDayname = LocalDate.now().format(dayFormatter)
+            currentDayname = LocalDate.now().format(dayFormatter),
+            currentDateIso = LocalDate.now().toString()
         )
     )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -96,6 +98,15 @@ class HomeViewModel(
                         dayStart = midnight
                         baseSteps = currentFromBoot
                         store.setBaseline(dayStart, baseSteps)
+
+                        val now = LocalDate.now()
+                        _uiState.update {
+                            it.copy(
+                                currentDate = now.format(dateFormatter),
+                                currentDayname = now.format(dayFormatter),
+                                currentDateIso = now.toString()
+                            )
+                        }
                     }
 
                     // reboot-safe
@@ -204,11 +215,15 @@ class HomeViewModel(
                 store.setSimDayStart(midnight)
                 store.setSimStepsToday(0)
 
+                val now = LocalDate.now()
                 _uiState.update {
                     it.copy(
                         steps = 0,
                         km = stepsToKm(0),
-                        kcal = "0"
+                        kcal = "0",
+                        currentDate = now.format(dateFormatter),
+                        currentDayname = now.format(dayFormatter),
+                        currentDateIso = now.toString()
                     )
                 }
             } else {

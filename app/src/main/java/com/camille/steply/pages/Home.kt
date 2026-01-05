@@ -31,20 +31,20 @@ import com.camille.steply.viewmodel.HomeViewModel
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withStyle
-
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Whatshot
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.graphics.vector.ImageVector
-
 import android.app.Application
 import androidx.compose.ui.platform.LocalContext
 import com.camille.steply.viewmodel.HomeVmFactory
-
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import java.time.LocalDate
+import java.time.format.TextStyle
+import java.util.Locale
 
 
 
@@ -194,7 +194,7 @@ fun Home() {
             Spacer(Modifier.height(30.dp))
 
             // -------------------- DASHBOARD --------------------
-            WeeklyStepsLight()
+            WeeklyStepsLight(currentDateIso = uiState.currentDateIso)
 
             Spacer(Modifier.height(24.dp))
         }
@@ -482,19 +482,36 @@ fun StreakCard(
 
 // -------------------- DASHBOARD --------------------
 @Composable
-private fun WeeklyStepsLight() {
+private fun WeeklyStepsLight(currentDateIso: String) {
+
+    val today = remember(currentDateIso) { LocalDate.parse(currentDateIso) }
+
+    // ultimi 7 giorni: 6 giorni fa ... oggi
+    val last7Days = remember(today) {
+        (6 downTo 0).map { today.minusDays(it.toLong()) }
+    }
+
+    val days = remember(last7Days) {
+        last7Days.map { d ->
+            d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).lowercase()
+        }
+    }
+
+    val dates = remember(last7Days) {
+        last7Days.map { it.dayOfMonth.toString() }
+    }
+
+    // per ora lasciamo i valori finti come prima (poi li colleghiamo allo store)
+    val values = remember {
+        listOf(2000, 8000, 3200, 6100, 4100, 700, 1643)
+    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-
-        val dailyGoal = 6000 // prova
-        val days = listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")
-        val dates = listOf("28", "29", "30", "31", "1", "2", "3")
-        val values = listOf(2000, 8000, 3200, 6100, 4100, 700, 1643)
-
+        val dailyGoal = 6000
         val max = values.maxOrNull()?.coerceAtLeast(1) ?: 1
 
         Row(
@@ -506,13 +523,12 @@ private fun WeeklyStepsLight() {
         ) {
             days.forEachIndexed { index, day ->
                 val frac = values[index].toFloat() / max.toFloat()
-                val isSelected = index == days.lastIndex
+                val isSelected = index == days.lastIndex // oggi
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom
                 ) {
-
                     Box(
                         modifier = Modifier
                             .width(10.dp)
@@ -530,7 +546,7 @@ private fun WeeklyStepsLight() {
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text(
-                            text = day.lowercase(),
+                            text = day,
                             color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Medium
