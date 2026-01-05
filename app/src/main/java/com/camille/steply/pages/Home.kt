@@ -45,6 +45,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.lerp
 
 
 
@@ -129,7 +135,7 @@ fun Home() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val dailyGoal = 500
+    val dailyGoal = 50
     val progress = (uiState.steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
     var selectedTab by remember { mutableStateOf(0) }
@@ -336,25 +342,65 @@ private fun StepsMainCard(
 
                 Spacer(Modifier.height(20.dp))
 
-                Box(
-                    modifier = Modifier
-                        .size(220.dp)
-                        .background(
-                            color = Color.White,
-                            shape = CircleShape
+                val progress = (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+
+                val progressColor = when {
+                    progress <= 0.3f -> {
+                        // rosso -> arancione (0%..30%)
+                        lerp(
+                            start = Color(0xFFE53935),   // rosso
+                            stop = Accent,               // arancione
+                            fraction = progress / 0.3f
                         )
-                        .border(
-                            width = 4.dp,
-                            color = Color(0xFFE6E6EA),
-                            shape = CircleShape
-                        ),
+                    }
+                    else -> {
+                        // arancione -> verde (30%..100%)
+                        lerp(
+                            start = Accent,               // arancione
+                            stop = Color(0xFF4CAF50),     // verde
+                            fraction = (progress - 0.3f) / 0.7f
+                        )
+                    }
+                }
+
+
+                Box(
+                    modifier = Modifier.size(220.dp),
                     contentAlignment = Alignment.Center
                 ) {
+                    // anello di progress
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val strokeWidth = 10.dp.toPx()
+                        val inset = strokeWidth / 2f
+
+                        // background ring (grigio)
+                        drawArc(
+                            color = Color(0xFFE6E6EA),
+                            startAngle = 0f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                        )
+
+                        // progress ring (arancione) — parte dall'alto e va in senso orario
+                        drawArc(
+                            color = progressColor,
+                            startAngle = -90f,                 // ore 12
+                            sweepAngle = 360f * progress,      // senso orario
+                            useCenter = false,
+                            topLeft = Offset(inset, inset),
+                            size = Size(size.width - strokeWidth, size.height - strokeWidth),
+                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                        )
+                    }
+
+                    // contenuto centrale (testi) dentro il cerchio
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-
                         Text(
                             text = steps.toString(),
                             color = TextPrimary,
