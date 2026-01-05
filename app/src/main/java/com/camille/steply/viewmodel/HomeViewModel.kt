@@ -17,6 +17,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import com.camille.steply.data.meteo.OpenMeteoApi
+import com.camille.steply.data.meteo.openMeteoCodeToText
+
 
 data class HomeUiState(
     val steps: Int = 0,
@@ -31,7 +34,12 @@ data class HomeUiState(
     val weeklySteps: List<Int> = List(7) { 0 },
     val currentPlacename: String = "-  ",
     val locationLoading: Boolean = false,
-    val locationError: String? = null
+    val locationError: String? = null,
+    val meteoLoading: Boolean = false,
+    val meteoError: String? = null,
+    val meteoTempC: String = "--",
+    val meteoDesc: String = "-"
+
 )
 
 class HomeViewModel(
@@ -64,16 +72,33 @@ class HomeViewModel(
     // -------------------- LOCATION --------------------
     fun refreshPlace() {
         viewModelScope.launch {
-            _uiState.update { it.copy(locationLoading = true, locationError = null) }
+            _uiState.update {
+                it.copy(
+                    locationLoading = true,
+                    locationError = null,
+                    meteoLoading = true,
+                    meteoError = null
+                )
+            }
 
             try {
                 val latLng = locationRepository.getCurrentLatLng()
+                //Place
                 val place = locationRepository.getPlaceName(latLng.lat, latLng.lon)
-
+                //Meteo
+                val meteo = OpenMeteoApi.service.getCurrent(latLng.lat, latLng.lon)
+                val currentMeteo = meteo.current
+                val temp = currentMeteo?.temperature2m
+                val code = currentMeteo?.weatherCode
                 _uiState.update {
                     it.copy(
                         currentPlacename = place,
-                        locationLoading = false
+                        locationLoading = false,
+
+                        meteoTempC = temp?.let { String.format(Locale.getDefault(), "%.0f", it) } ?: "--",
+                        meteoDesc = code?.let { openMeteoCodeToText(it) } ?: "Unknown",
+                        meteoLoading = false,
+                        meteoError = null
                     )
                 }
             } catch (e: Exception) {
@@ -81,7 +106,10 @@ class HomeViewModel(
                     it.copy(
                         currentPlacename = "-",
                         locationLoading = false,
-                        locationError = e.message ?: "Location failed"
+                        locationError = e.message ?: "Location failed",
+
+                        meteoLoading = false,
+                        meteoError = e.message ?: "Meteo failed"
                     )
                 }
             }

@@ -174,7 +174,11 @@ fun Home() {
                     uiState.locationError != null -> "Err: ${uiState.locationError}"
                     else -> uiState.currentPlacename
                 },
-                weatherText = "Sunny  25°C",
+                weatherText = when {
+                    uiState.meteoLoading -> "Loading weather..."
+                    uiState.meteoError != null -> "Weather unavailable"
+                    else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
+                },
                 onSettings = { },
                 onCalendar = { }
             )
