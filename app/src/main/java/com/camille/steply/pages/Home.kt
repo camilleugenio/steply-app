@@ -129,7 +129,7 @@ fun Home() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    val dailyGoal = 6000
+    val dailyGoal = 500
     val progress = (uiState.steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
     var selectedTab by remember { mutableStateOf(0) }
@@ -194,7 +194,12 @@ fun Home() {
             Spacer(Modifier.height(30.dp))
 
             // -------------------- DASHBOARD --------------------
-            WeeklyStepsLight(currentDateIso = uiState.currentDateIso)
+            WeeklyStepsLight(
+                currentDateIso = uiState.currentDateIso,
+                values = uiState.weeklySteps,
+                dailyGoal = dailyGoal
+            )
+
 
             Spacer(Modifier.height(24.dp))
         }
@@ -482,7 +487,7 @@ fun StreakCard(
 
 // -------------------- DASHBOARD --------------------
 @Composable
-private fun WeeklyStepsLight(currentDateIso: String) {
+private fun WeeklyStepsLight(currentDateIso: String, values: List<Int>, dailyGoal: Int) {
 
     val today = remember(currentDateIso) { LocalDate.parse(currentDateIso) }
 
@@ -501,18 +506,12 @@ private fun WeeklyStepsLight(currentDateIso: String) {
         last7Days.map { it.dayOfMonth.toString() }
     }
 
-    // per ora lasciamo i valori finti come prima (poi li colleghiamo allo store)
-    val values = remember {
-        listOf(2000, 8000, 3200, 6100, 4100, 700, 1643)
-    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
     ) {
-        val dailyGoal = 6000
-        val max = values.maxOrNull()?.coerceAtLeast(1) ?: 1
 
         Row(
             modifier = Modifier
@@ -522,8 +521,17 @@ private fun WeeklyStepsLight(currentDateIso: String) {
             verticalAlignment = Alignment.Bottom
         ) {
             days.forEachIndexed { index, day ->
-                val frac = values[index].toFloat() / max.toFloat()
+                val stepsForDay = values.getOrNull(index) ?: 0
+
+                // ✅ frazione rispetto al GOAL (non rispetto al max della settimana)
+                val frac = if (dailyGoal <= 0) 0f
+                else (stepsForDay.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+
+                // ✅ altezza minima così la barra non sparisce mai
+                val barHeight = (6f + 84f * frac).dp
+
                 val isSelected = index == days.lastIndex // oggi
+
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -532,10 +540,10 @@ private fun WeeklyStepsLight(currentDateIso: String) {
                     Box(
                         modifier = Modifier
                             .width(10.dp)
-                            .height((90 * frac).dp)
+                            .height(barHeight)
                             .background(
                                 color = when {
-                                    values[index] >= dailyGoal -> Color(0xFF4CAF50)
+                                    stepsForDay >= dailyGoal -> Color(0xFF4CAF50)
                                     else -> Accent
                                 },
                                 shape = RoundedCornerShape(50)

@@ -8,28 +8,24 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
-
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
-
 import androidx.work.CoroutineWorker
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.ExistingWorkPolicy
-
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.suspendCancellableCoroutine
-
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
-
 import kotlin.math.sqrt
-
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.intPreferencesKey
+import java.time.Instant
 
 
 
@@ -108,7 +104,33 @@ class StepDataStore(private val context: Context) {
         dataStore.edit { it[KEY_SIM_STEPS_TODAY] = value }
     }
 
+    // ---------- STEPS PER GIORNO (storico) ----------
+
+    private fun dayKeyIso(iso: String) = intPreferencesKey("steps_$iso")
+
+    suspend fun getStepsForDateIso(iso: String): Int {
+        return dataStore.data.first()[dayKeyIso(iso)] ?: 0
+    }
+
+    suspend fun setStepsForDateIso(iso: String, steps: Int) {
+        dataStore.edit { prefs ->
+            prefs[dayKeyIso(iso)] = steps
+        }
+    }
+
+    suspend fun getStepsForDayStartEpoch(dayStartEpoch: Long, zoneId: ZoneId = ZoneId.systemDefault()): Int {
+        val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
+        return getStepsForDateIso(iso)
+    }
+
+    suspend fun setStepsForDayStartEpoch(dayStartEpoch: Long, steps: Int, zoneId: ZoneId = ZoneId.systemDefault()) {
+        val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
+        setStepsForDateIso(iso, steps)
+    }
+
+
 }
+
 
 // -------------------- STEP SENSOR --------------------
 

@@ -26,6 +26,7 @@ data class HomeUiState(
     val currentDate: String = "",
     val currentDayname: String = "",
     val currentDateIso: String = "",
+    val weeklySteps: List<Int> = List(7) { 0 },
     val currentPlacename: String = "-  ",
     val locationLoading: Boolean = false,
     val locationError: String? = null
@@ -51,6 +52,11 @@ class HomeViewModel(
         )
     )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    init {
+        refreshWeeklySteps(_uiState.value.currentDateIso)
+    }
+
 
     // -------------------- LOCATION --------------------
     fun refreshPlace() {
@@ -107,6 +113,7 @@ class HomeViewModel(
                                 currentDateIso = now.toString()
                             )
                         }
+                        refreshWeeklySteps(now.toString())
                     }
 
                     // reboot-safe
@@ -119,6 +126,9 @@ class HomeViewModel(
                     val kmText = stepsToKm(todaySteps)      // String "1.23"
                     val kmValue = kmText.toDouble()         // Double 1.23 (ok perché Locale.US)
                     val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+
+                    store.setStepsForDayStartEpoch(dayStart, todaySteps)
+
                     _uiState.update {
                         it.copy(
                             steps = todaySteps,
@@ -126,6 +136,9 @@ class HomeViewModel(
                             kcal = kcalValue.toString()
                         )
                     }
+
+                    refreshWeeklySteps(_uiState.value.currentDateIso)
+
                 }
             }
         }
@@ -185,6 +198,9 @@ class HomeViewModel(
                 val current = store.getSimStepsToday() + 1
                 store.setSimStepsToday(current)
 
+                val todayMidnight = todayMidnightEpochMillis()
+                store.setStepsForDayStartEpoch(todayMidnight, current)
+
                 val kmText = stepsToKm(current)          // "1.23"
                 val kmValue = kmText.toDouble()          // 1.23
                 val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
@@ -196,6 +212,7 @@ class HomeViewModel(
                         kcal = kcalValue.toString()
                     )
                 }
+                refreshWeeklySteps(_uiState.value.currentDateIso)
             }
         }
         accelSimulator?.start()
@@ -244,5 +261,17 @@ class HomeViewModel(
         }
     }
 
+    private fun refreshWeeklySteps(todayIso: String) {
+        viewModelScope.launch {
+            val today = LocalDate.parse(todayIso)
+            val last7 = (6 downTo 0).map { today.minusDays(it.toLong()).toString() } // ISO strings
+
+            val values = last7.map { iso ->
+                store.getStepsForDateIso(iso)
+            }
+
+            _uiState.update { it.copy(weeklySteps = values) }
+        }
+    }
 
 }
