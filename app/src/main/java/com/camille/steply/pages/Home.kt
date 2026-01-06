@@ -170,7 +170,12 @@ fun Home() {
             ) {
                 BottomPillNavBar(
                     selectedIndex = selectedTab,
-                    onSelect = { selectedTab = it }
+                    onSelect = { index ->
+                        selectedTab = index
+                        if (index == 0) { // Steps tab
+                            homeViewModel.selectToday()
+                        }
+                    }
                 )
             }
         }
@@ -730,7 +735,7 @@ private fun WeeklyStepsLight(currentDateIso: String, selectedDateIso: String, va
 }
 
 
-
+// -------------------- NAVBAR --------------------
 
 @Composable
 fun BottomPillNavBar(

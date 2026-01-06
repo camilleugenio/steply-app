@@ -398,6 +398,11 @@ class HomeViewModel(
         }
     }
 
+    fun selectToday() {
+        val today = LocalDate.now()
+        selectDay(today.toString())
+    }
+
 
     // -------------------- STREAK --------------------
 
