@@ -42,7 +42,8 @@ data class HomeUiState(
     val meteoLoading: Boolean = false,
     val meteoError: String? = null,
     val meteoTempC: String = "--",
-    val meteoDesc: String = "-"
+    val meteoDesc: String = "-",
+    val stepsByDateIso: Map<String, Int> = emptyMap()
 
 )
 
@@ -72,6 +73,7 @@ class HomeViewModel(
         refreshWeeklySteps(_uiState.value.currentDateIso)
         refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
         loadSelectedDayFromStore(_uiState.value.selectedDateIso)
+        refreshCalendarSteps()
     }
 
 
@@ -168,6 +170,7 @@ class HomeViewModel(
                     val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
 
                     store.setStepsForDayStartEpoch(dayStart, todaySteps)
+                    refreshCalendarSteps()
 
                     val todayIso = LocalDate.now().toString()
 
@@ -251,6 +254,7 @@ class HomeViewModel(
 
                 val todayMidnight = todayMidnightEpochMillis()
                 store.setStepsForDayStartEpoch(todayMidnight, current)
+                refreshCalendarSteps()
 
                 val kmText = stepsToKm(current)          // "1.23"
                 val kmValue = kmText.toDouble()          // 1.23
@@ -339,6 +343,26 @@ class HomeViewModel(
             _uiState.update { it.copy(weeklySteps = values) }
         }
     }
+
+    // -------------------- CALENDAR--------------------
+
+    private fun refreshCalendarSteps(monthsBack: Long = 11) {
+        viewModelScope.launch {
+            val today = LocalDate.now()
+            val start = today.minusMonths(monthsBack).withDayOfMonth(1)
+
+            val map = LinkedHashMap<String, Int>()
+            var d = start
+            while (!d.isAfter(today)) {
+                val iso = d.toString()
+                map[iso] = store.getStepsForDateIso(iso)
+                d = d.plusDays(1)
+            }
+
+            _uiState.update { it.copy(stepsByDateIso = map) }
+        }
+    }
+
 
     // -------------------- PASSI DI OGGI --------------------
 

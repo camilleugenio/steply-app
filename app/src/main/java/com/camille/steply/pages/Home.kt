@@ -64,8 +64,31 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
-
-
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import java.time.YearMonth
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.zIndex
+import kotlin.math.roundToInt
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 
 
 
@@ -159,6 +182,7 @@ fun Home() {
         homeViewModel.refreshPlace()
     }
 
+    var showCalendar by remember { mutableStateOf(false) }
 
 
     Scaffold(
@@ -200,7 +224,7 @@ fun Home() {
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
                 onSettings = { },
-                onCalendar = { }
+                onCalendar = { showCalendar = true }
             )
 
             Spacer(Modifier.height(14.dp))
@@ -235,6 +259,18 @@ fun Home() {
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    BottomSlidePopup(
+        visible = showCalendar,
+        onDismiss = { showCalendar = false }
+    ) {
+        StepsCalendarSheetContent(
+            onClose = { showCalendar = false },
+            dailyGoal = uiState.dailyGoal,
+            stepsByDateIso = uiState.stepsByDateIso
+        )
+
     }
 
 }
@@ -423,24 +459,7 @@ private fun StepsMainCard(
                 val progress = if (dailyGoal <= 0) 0f
                 else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
 
-                val progressColor = when {
-                    progress <= 0.5f -> {
-                        lerp(
-                            start = Color(0xFFE53935),   // rosso
-                            stop = Color(0xFFFFEB3B),   // giallo
-                            fraction = progress / 0.5f
-                        )
-                    }
-                    else -> {
-                        lerp(
-                            start = Color(0xFFFFEB3B),   // giallo
-                            stop = Color(0xFF4CAF50),   // verde
-                            fraction = (progress - 0.5f) / 0.5f
-                        )
-                    }
-                }
-
-
+                val progressColor = progressColorForSteps(steps, dailyGoal)
 
                 Box(
                     modifier = Modifier.size(220.dp),
@@ -808,3 +827,607 @@ private data class NavItem(
     val label: String,
     val icon: ImageVector
 )
+
+// -------------------- CALENDAR --------------------
+
+@Composable
+fun BottomSlidePopup(
+    visible: Boolean,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    // quanto "sotto" parte il foglio (dp)
+    val hiddenOffset = 900f
+
+    val sheetOffset = remember { Animatable(hiddenOffset) }
+    val scrimAlpha = remember { Animatable(0f) }
+
+    // per tenere in composizione durante l'animazione di chiusura
+    var keepInComposition by remember { mutableStateOf(false) }
+
+    LaunchedEffect(visible) {
+        if (visible) {
+            keepInComposition = true
+            // reset (se riapri subito)
+            sheetOffset.snapTo(hiddenOffset)
+            scrimAlpha.snapTo(0f)
+
+            // anima IN (dal basso verso l'alto)
+            scrimAlpha.animateTo(1f, tween(110))
+            sheetOffset.animateTo(0f, tween(180))
+        } else {
+            // anima OUT (verso il basso)
+            scrimAlpha.animateTo(0f, tween(140))
+            sheetOffset.animateTo(hiddenOffset, tween(240))
+            keepInComposition = false
+        }
+    }
+
+    if (!keepInComposition) return
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+    ) {
+        // sfondo scuro cliccabile
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(alpha = 0.35f * scrimAlpha.value)
+                .background(Color.Black)
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { onDismiss() }
+        )
+
+        // sheet
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = sheetOffset.value.dp)
+                .fillMaxWidth()
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() }
+                ) { /* consume */ }
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.90f),
+                shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+                color = Color.White,
+                shadowElevation = 24.dp
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun StepsCalendarSheetContent(
+    onClose: () -> Unit,
+    dailyGoal: Int,
+    stepsByDateIso: Map<String, Int>
+) {
+    var selectedDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(bottom = 18.dp)
+    ) {
+        // Header: X + titolo
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                shape = CircleShape,
+                color = Color.White,
+                shadowElevation = 6.dp
+            ) {
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.Black,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+
+            Text(
+                text = "Steps",
+                modifier = Modifier.weight(1f),
+                textAlign = TextAlign.Center,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
+            )
+
+            Spacer(modifier = Modifier.size(48.dp))
+        }
+
+        Spacer(Modifier.height(6.dp))
+
+        val nowYm = remember { java.time.YearMonth.now() }
+        val months = remember(nowYm) { (0 until 12).map { nowYm.minusMonths(it.toLong()) } }
+
+        // overlay popup sopra la lista (come screenshot)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp)
+        ) {
+            val topPad = if (selectedDate != null) 86.dp else 0.dp
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                reverseLayout = true, // mesi recenti in basso
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                contentPadding = PaddingValues(top = topPad, bottom = 24.dp)
+            ) {
+                items(months, key = { it.toString() }) { ym: java.time.YearMonth ->
+                    MonthCalendarCard(
+                        month = ym,
+                        dailyGoal = dailyGoal,
+                        stepsByDateIso = stepsByDateIso,
+                        selectedDate = selectedDate,
+                        onSelectDate = { date ->
+                            // toggle: se clicco lo stesso giorno, deseleziona
+                            selectedDate = if (selectedDate == date) null else date
+                        }
+                    )
+                }
+            }
+
+            // Popup (se c’è una selezione) — SOLO FADE (semplice)
+            val popupAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
+            var popupDate by remember { mutableStateOf<java.time.LocalDate?>(null) } // cache per exit
+
+            LaunchedEffect(selectedDate) {
+                if (selectedDate != null) {
+                    popupDate = selectedDate
+                    popupAlpha.animateTo(1f, tween(140)) // niente snapTo
+                } else {
+                    popupAlpha.animateTo(0f, tween(120))
+                    popupDate = null
+                }
+            }
+
+            if (popupDate != null || popupAlpha.value > 0.01f) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 6.dp)
+                        .graphicsLayer(alpha = popupAlpha.value)
+                ) {
+                    val date = popupDate ?: return@Box
+                    FadeSwapPopupContent(
+                        date = date,
+                        steps = stepsByDateIso[date.toString()] ?: 0,
+                        dailyGoal = dailyGoal,
+                        onClose = { selectedDate = null }
+                    )
+                }
+            }
+
+        }
+    }
+}
+
+
+@Composable
+private fun MonthCalendarCard(
+    month: java.time.YearMonth,
+    dailyGoal: Int,
+    stepsByDateIso: Map<String, Int>,
+    selectedDate: java.time.LocalDate?,
+    onSelectDate: (java.time.LocalDate) -> Unit
+) {
+    val locale = Locale.getDefault()
+
+    val monthName = remember(month) {
+        month.month.getDisplayName(java.time.format.TextStyle.FULL, locale).lowercase(locale)
+    }
+    val yearText = remember(month) { month.year.toString() }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = monthName,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
+            )
+
+            Text(
+                text = yearText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.Black
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        MonthGrid(
+            month = month,
+            dailyGoal = dailyGoal,
+            stepsByDateIso = stepsByDateIso,
+            selectedDate = selectedDate,
+            onSelectDate = onSelectDate
+        )
+    }
+}
+
+
+@Composable
+private fun MonthGrid(
+    month: java.time.YearMonth,
+    dailyGoal: Int,
+    stepsByDateIso: Map<String, Int>,
+    selectedDate: java.time.LocalDate?,
+    onSelectDate: (java.time.LocalDate) -> Unit
+) {
+    val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
+    val today = remember { java.time.LocalDate.now() }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            dayLabels.forEach {
+                Text(
+                    text = it,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontSize = 12.sp,
+                    color = Color(0xFF8E8E93)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        val firstDay = remember(month) { month.atDay(1) }
+        val daysInMonth = remember(month) { month.lengthOfMonth() }
+        val leadingBlanks = remember(firstDay) { (firstDay.dayOfWeek.value - 1).coerceAtLeast(0) }
+
+        val totalCells = remember(leadingBlanks, daysInMonth) {
+            val raw = leadingBlanks + daysInMonth
+            val weeks = (raw + 6) / 7
+            weeks * 7
+        }
+
+        val cells = remember(month, totalCells, leadingBlanks, daysInMonth) {
+            (0 until totalCells).map { idx ->
+                val dayNum = idx - leadingBlanks + 1
+                if (dayNum in 1..daysInMonth) dayNum else null
+            }
+        }
+
+        cells.chunked(7).forEach { week ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 6.dp)
+            ) {
+                week.forEach { dayNum ->
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .aspectRatio(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (dayNum == null) {
+                            Spacer(Modifier.size(1.dp))
+                        } else {
+                            val date = month.atDay(dayNum)
+                            val isFuture = date.isAfter(today)
+                            val steps = stepsByDateIso[date.toString()] ?: 0
+                            val isSelected = selectedDate == date
+
+                            DayCellColored(
+                                date = date,
+                                steps = steps,
+                                dailyGoal = dailyGoal,
+                                isSelected = isSelected,
+                                enabled = !isFuture,
+                                onClick = { onSelectDate(date) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun DayCellColored(
+    date: java.time.LocalDate,
+    steps: Int,
+    dailyGoal: Int,
+    isSelected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val today = remember { java.time.LocalDate.now() }
+    val isToday = date == today
+    val isFuture = date.isAfter(today)
+    val isZeroPast = !isFuture && steps == 0
+    val textColor = when {
+        isFuture -> Color(0xFF8E8E93)   // futuri grigi
+        else -> Color.Black            // tutti i giorni passati + oggi
+    }
+
+
+    val baseColor = if (isFuture || isZeroPast) {
+        Color(0xFFF2F2F4)
+    } else {
+        progressColorForSteps(steps, dailyGoal)
+    }
+
+
+    val brush = if (isFuture) {
+        Brush.verticalGradient(listOf(baseColor, baseColor))
+    } else {
+        Brush.verticalGradient(
+            listOf(
+                baseColor.copy(alpha = 0.75f),
+                baseColor.copy(alpha = 1f)
+            )
+        )
+    }
+
+    Box(
+        modifier = Modifier
+            .padding(4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(brush)
+            .then(
+                if (isSelected) Modifier.border(2.5.dp, Color.Black, RoundedCornerShape(16.dp))
+                else Modifier
+            )
+            .clickable(
+                enabled = enabled,
+                indication = null,
+                interactionSource = remember { MutableInteractionSource() }
+            ) { onClick() }
+            .fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = date.dayOfMonth.toString(),
+            color = textColor,
+            fontSize = 14.sp,
+            fontWeight = if (isToday) FontWeight.ExtraBold else FontWeight.Medium
+        )
+
+    }
+}
+
+@Composable
+private fun SelectedDayPopup(
+    date: java.time.LocalDate,
+    steps: Int,
+    dailyGoal: Int,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val locale = Locale.getDefault()
+
+    val monthName = remember(date) {
+        date.month.getDisplayName(java.time.format.TextStyle.FULL, locale)
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
+    }
+
+    val km = remember(steps) { (steps * 0.74) / 1000.0 }
+    val kmText = remember(km) { String.format(Locale.getDefault(), "%.2f", km) }
+    val kcal = remember(km) { (70.0 * km * 0.75).roundToInt() }
+
+    val progress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+    val ringColor = progressColorForSteps(steps, dailyGoal)
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White.copy(alpha = 0.98f),
+        shadowElevation = 18.dp
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // X a destra
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = Color.Black
+                )
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Ring + mese sotto
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        modifier = Modifier.size(62.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val stroke = 6.dp.toPx()
+                            val inset = stroke / 2f
+
+                            // background
+                            drawArc(
+                                color = Color(0xFFE6E6EA),
+                                startAngle = 0f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                topLeft = Offset(inset, inset),
+                                size = Size(size.width - stroke, size.height - stroke),
+                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                            )
+                            // progress
+                            drawArc(
+                                color = ringColor,
+                                startAngle = -90f,
+                                sweepAngle = 360f * progress,
+                                useCenter = false,
+                                topLeft = Offset(inset, inset),
+                                size = Size(size.width - stroke, size.height - stroke),
+                                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                            )
+                        }
+
+                        Text(
+                            text = date.dayOfMonth.toString(),
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+
+                    Spacer(Modifier.height(6.dp))
+
+                    Text(
+                        text = monthName,
+                        fontSize = 12.sp,
+                        color = Color(0xFF666666),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                // Stats orizzontali (più grandi, senza emoji)
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 44.dp), // spazio per la X
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    StatPill(value = steps.toString(), label = "steps")
+                    StatPill(value = kmText, label = "km")
+                    StatPill(value = kcal.toString(), label = "cal")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatPill(
+    value: String,
+    label: String
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = value,
+            fontSize = 30.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black
+        )
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            color = Color(0xFF666666)
+        )
+    }
+}
+
+
+@Composable
+private fun FadeSwapPopupContent(
+    date: java.time.LocalDate,
+    steps: Int,
+    dailyGoal: Int,
+    onClose: () -> Unit
+) {
+    var shownDate by remember { mutableStateOf(date) }
+    var shownSteps by remember { mutableStateOf(steps) }
+
+    val alpha = remember { androidx.compose.animation.core.Animatable(1f) }
+    var initialized by remember { mutableStateOf(false) }
+
+    LaunchedEffect(date, steps, dailyGoal) {
+        // ✅ prima apertura: NON fare fade-out/fade-in, mostra subito
+        if (!initialized) {
+            initialized = true
+            shownDate = date
+            shownSteps = steps
+            alpha.snapTo(1f)
+            return@LaunchedEffect
+        }
+
+        // ✅ cambio giorno: crossfade semplice
+        alpha.animateTo(0f, tween(80))
+        shownDate = date
+        shownSteps = steps
+        alpha.animateTo(1f, tween(120))
+    }
+
+    Box(modifier = Modifier.graphicsLayer(alpha = alpha.value)) {
+        SelectedDayPopup(
+            date = shownDate,
+            steps = shownSteps,
+            dailyGoal = dailyGoal,
+            onClose = onClose
+        )
+    }
+}
+
+
+
+
+
+
+
+private fun progressColorForSteps(steps: Int, dailyGoal: Int): Color {
+    if (dailyGoal <= 0) return Color(0xFFE6E6EA)
+
+    val progress = (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+
+    return if (progress <= 0.5f) {
+        lerp(
+            start = Color(0xFFE53935),   // rosso
+            stop = Color(0xFFFFEB3B),   // giallo
+            fraction = progress / 0.5f
+        )
+    } else {
+        lerp(
+            start = Color(0xFFFFEB3B),   // giallo
+            stop = Color(0xFF4CAF50),   // verde
+            fraction = (progress - 0.5f) / 0.5f
+        )
+    }
+}
