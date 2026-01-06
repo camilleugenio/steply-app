@@ -18,7 +18,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 import com.camille.steply.data.meteo.OpenMeteoApi
-import com.camille.steply.data.meteo.openMeteoCodeToText
+import com.camille.steply.data.meteo.openMeteoCodeToEmoji
 
 
 data class HomeUiState(
@@ -96,7 +96,7 @@ class HomeViewModel(
                         locationLoading = false,
 
                         meteoTempC = temp?.let { String.format(Locale.getDefault(), "%.0f", it) } ?: "--",
-                        meteoDesc = code?.let { openMeteoCodeToText(it) } ?: "Unknown",
+                        meteoDesc = code?.let { openMeteoCodeToEmoji(it) } ?: "Unknown",
                         meteoLoading = false,
                         meteoError = null
                     )

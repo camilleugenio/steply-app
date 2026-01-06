@@ -76,3 +76,21 @@ fun openMeteoCodeToText(code: Int): String = when (code) {
     96, 99 -> "Thunderstorm + hail"
     else -> "Unknown"
 }
+
+fun openMeteoCodeToEmoji(code: Int): String = when (code) {
+    0 -> "☀️"
+    1, 2, 3 -> "⛅️"          // variabile / nuvoloso
+    45, 48 -> "🌫️"           // nebbia
+    51, 53, 55 -> "🌦️"       // pioviggine
+    56, 57 -> "🧊🌦️"         // pioviggine gelata
+    61, 63, 65 -> "🌧️"       // pioggia
+    66, 67 -> "🧊🌧️"         // pioggia gelata
+    71, 73, 75 -> "❄️"       // neve
+    77 -> "❄️"               // granelli di neve
+    80, 81, 82 -> "🌧️"       // rovesci
+    85, 86 -> "🌨️"           // rovesci di neve
+    95 -> "⛈️"               // temporale
+    96, 99 -> "⛈️🧊"          // temporale + grandine
+    else -> "❓"
+}
+
