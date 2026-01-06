@@ -31,6 +31,10 @@ data class HomeUiState(
     val currentDate: String = "",
     val currentDayname: String = "",
     val currentDateIso: String = "",
+    val selectedDateIso: String = "",      // giorno selezionato nella dashboard
+    val selectedSteps: Int = 0,
+    val selectedKm: String = "0.00",
+    val selectedKcal: String = "0",
     val weeklySteps: List<Int> = List(7) { 0 },
     val currentPlacename: String = "-  ",
     val locationLoading: Boolean = false,
@@ -58,14 +62,16 @@ class HomeViewModel(
         HomeUiState(
             currentDate = LocalDate.now().format(dateFormatter),
             currentDayname = LocalDate.now().format(dayFormatter),
-            currentDateIso = LocalDate.now().toString()
-        )
+            currentDateIso = LocalDate.now().toString(),
+            selectedDateIso = LocalDate.now().toString()
+            )
     )
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
         refreshWeeklySteps(_uiState.value.currentDateIso)
         refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
+        loadSelectedDayFromStore(_uiState.value.selectedDateIso)
     }
 
 
@@ -127,6 +133,8 @@ class HomeViewModel(
             var baseSteps = store.getBaseStepsFromBoot()
             val midnight = todayMidnightEpochMillis()
 
+            loadSelectedDayFromStore(_uiState.value.selectedDateIso)
+
             sensor.startListening { currentFromBoot ->
                 viewModelScope.launch {
 
@@ -161,11 +169,21 @@ class HomeViewModel(
 
                     store.setStepsForDayStartEpoch(dayStart, todaySteps)
 
-                    _uiState.update {
-                        it.copy(
+                    val todayIso = LocalDate.now().toString()
+
+                    _uiState.update { state ->
+                        val viewingToday = state.selectedDateIso == todayIso
+
+                        state.copy(
+                            // dati LIVE di oggi (sempre aggiornati)
                             steps = todaySteps,
                             km = kmText,
-                            kcal = kcalValue.toString()
+                            kcal = kcalValue.toString(),
+
+                            // dati mostrati nella card (solo se sto guardando oggi)
+                            selectedSteps = if (viewingToday) todaySteps else state.selectedSteps,
+                            selectedKm = if (viewingToday) kmText else state.selectedKm,
+                            selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
                         )
                     }
 
@@ -238,13 +256,22 @@ class HomeViewModel(
                 val kmValue = kmText.toDouble()          // 1.23
                 val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
 
-                _uiState.update {
-                    it.copy(
+                val todayIso = LocalDate.now().toString()
+
+                _uiState.update { state ->
+                    val viewingToday = state.selectedDateIso == todayIso
+
+                    state.copy(
                         steps = current,
                         km = kmText,
-                        kcal = kcalValue.toString()
+                        kcal = kcalValue.toString(),
+
+                        selectedSteps = if (viewingToday) current else state.selectedSteps,
+                        selectedKm = if (viewingToday) kmText else state.selectedKm,
+                        selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
                     )
                 }
+
                 refreshWeeklySteps(_uiState.value.currentDateIso)
                 refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
             }
@@ -312,6 +339,65 @@ class HomeViewModel(
             _uiState.update { it.copy(weeklySteps = values) }
         }
     }
+
+    // -------------------- PASSI DI OGGI --------------------
+
+    private fun loadSelectedDayFromStore(dateIso: String) {
+        viewModelScope.launch {
+            val steps = store.getStepsForDateIso(dateIso)
+
+            val kmText = stepsToKm(steps)
+            val kmValue = kmText.toDouble()
+            val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+
+            _uiState.update { state ->
+                val viewingToday = state.selectedDateIso == LocalDate.now().toString()
+
+                state.copy(
+                    // ✅ riempi subito anche i valori "live" (così il cerchio non parte da 0)
+                    steps = if (viewingToday) steps else state.steps,
+                    km = if (viewingToday) kmText else state.km,
+                    kcal = if (viewingToday) kcalValue.toString() else state.kcal,
+
+                    // ✅ e sempre i valori della card (selected)
+                    selectedSteps = steps,
+                    selectedKm = kmText,
+                    selectedKcal = kcalValue.toString()
+                )
+            }
+        }
+    }
+
+
+    // -------------------- SELECTED DAY --------------------
+
+    fun selectDay(dateIso: String) {
+        viewModelScope.launch {
+            val steps = store.getStepsForDateIso(dateIso)
+
+            val kmText = stepsToKm(steps)
+            val kmValue = kmText.toDouble()
+            val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+
+            val d = LocalDate.parse(dateIso)
+
+            _uiState.update {
+                it.copy(
+                    selectedDateIso = dateIso,
+                    // aggiorno anche ciò che mostrerai nella card in alto
+                    selectedSteps = steps,
+                    selectedKm = kmText,
+                    selectedKcal = kcalValue.toString(),
+
+                    // e aggiorno l’etichetta data/weekday MOSTRATA nella card
+                    // (ma ATTENZIONE: non tocco currentDateIso => streak invariata)
+                    currentDate = d.format(dateFormatter),
+                    currentDayname = d.format(dayFormatter),
+                    )
+            }
+        }
+    }
+
 
     // -------------------- STREAK --------------------
 

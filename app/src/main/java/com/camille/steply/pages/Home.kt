@@ -51,6 +51,21 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateIntAsState
+
+
 
 
 
@@ -189,10 +204,10 @@ fun Home() {
             StepsMainCard(
                 dateLabel = uiState.currentDayname,
                 dateValue = uiState.currentDate,
-                steps = uiState.steps,
+                steps = uiState.selectedSteps,
                 dailyGoal = dailyGoal,
-                km = uiState.km,
-                kcal = uiState.kcal,
+                km = uiState.selectedKm,
+                kcal = uiState.selectedKcal,
                 onRefresh = { }
             )
 
@@ -204,10 +219,12 @@ fun Home() {
             Spacer(Modifier.height(30.dp))
 
             // -------------------- DASHBOARD --------------------
-            WeeklyStepsLight(
+             WeeklyStepsLight(
                 currentDateIso = uiState.currentDateIso,
+                selectedDateIso = uiState.selectedDateIso,
                 values = uiState.weeklySteps,
-                dailyGoal = dailyGoal
+                dailyGoal = dailyGoal,
+                onSelectDay = { iso -> homeViewModel.selectDay(iso) }
             )
 
 
@@ -306,6 +323,45 @@ private fun StepsMainCard(
     kcal: String,
     onRefresh: () -> Unit
 ) {
+
+    val targetProgress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+
+    // tengo memoria del progress precedente per decidere direzione
+    var prevProgress by remember { mutableStateOf(targetProgress) }
+    val direction = if (targetProgress >= prevProgress) 1f else -1f
+
+    val animatedProgress by animateFloatAsState(
+        targetValue = targetProgress,
+        animationSpec = tween(durationMillis = 650),
+        label = "ringProgress"
+    )
+
+    // aggiorno prevProgress quando cambia il target (dopo la composizione)
+    LaunchedEffect(targetProgress) {
+        prevProgress = targetProgress
+    }
+
+    val animatedSteps by animateIntAsState(
+        targetValue = steps,
+        animationSpec = tween(450),
+        label = "steps"
+    )
+
+    // km e kcal: meglio animarli come numeri e poi formattarli
+    val kmDouble = km.toDoubleOrNull() ?: 0.0
+    val animatedKm by animateFloatAsState(
+        targetValue = kmDouble.toFloat(),
+        animationSpec = tween(450),
+        label = "km"
+    )
+
+    val kcalInt = kcal.toIntOrNull() ?: 0
+    val animatedKcal by animateIntAsState(
+        targetValue = kcalInt,
+        animationSpec = tween(450),
+        label = "kcal"
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -336,13 +392,26 @@ private fun StepsMainCard(
                     .padding(horizontal = 18.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(dateLabel, color = TextSecondary, fontSize = 16.sp)
-                Text(
-                    dateValue,
-                    color = TextPrimary,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+                AnimatedContent(
+                    targetState = dateLabel,
+                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                    label = "dayLabel"
+                ) { label ->
+                    Text(label, color = TextSecondary, fontSize = 16.sp)
+                }
+
+                AnimatedContent(
+                    targetState = dateValue,
+                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                    label = "dateValue"
+                ) { value ->
+                    Text(
+                        value,
+                        color = TextPrimary,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
 
                 Spacer(Modifier.height(20.dp))
 
@@ -392,7 +461,7 @@ private fun StepsMainCard(
                         drawArc(
                             color = progressColor,
                             startAngle = -90f,
-                            sweepAngle = 360f * progress,
+                            sweepAngle = 360f * animatedProgress * direction,
                             useCenter = false,
                             topLeft = Offset(inset, inset),
                             size = Size(size.width - strokeWidth, size.height - strokeWidth),
@@ -406,7 +475,7 @@ private fun StepsMainCard(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = steps.toString(),
+                            text = animatedSteps.toString(),
                             color = TextPrimary,
                             fontSize = 64.sp,
                             fontWeight = FontWeight.Medium
@@ -421,8 +490,8 @@ private fun StepsMainCard(
                         Spacer(Modifier.height(16.dp))
 
                         Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                            InfoMini(value = km, label = "km")
-                            InfoMini(value = kcal, label = "calories")
+                            InfoMini(value = String.format(Locale.getDefault(), "%.2f", animatedKm), label = "km")
+                            InfoMini(value = animatedKcal.toString(), label = "calories")
                         }
 
                         Spacer(Modifier.height(16.dp))
@@ -550,7 +619,7 @@ fun StreakCard(
 
 // -------------------- DASHBOARD --------------------
 @Composable
-private fun WeeklyStepsLight(currentDateIso: String, values: List<Int>, dailyGoal: Int) {
+private fun WeeklyStepsLight(currentDateIso: String, selectedDateIso: String, values: List<Int>, dailyGoal: Int, onSelectDay: (String) -> Unit) {
 
     val today = remember(currentDateIso) { LocalDate.parse(currentDateIso) }
 
@@ -579,7 +648,7 @@ private fun WeeklyStepsLight(currentDateIso: String, values: List<Int>, dailyGoa
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(160.dp),
+                .height(180.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Bottom
         ) {
@@ -593,44 +662,56 @@ private fun WeeklyStepsLight(currentDateIso: String, values: List<Int>, dailyGoa
                 // ✅ altezza minima così la barra non sparisce mai
                 val barHeight = (6f + 84f * frac).dp
 
-                val isSelected = index == days.lastIndex // oggi
+                val dayIso = last7Days[index].toString()
+                val isSelected = dayIso == selectedDateIso
 
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom
                 ) {
+                    // ---- barra (SEMPRE fuori dal quadratino) ----
                     Box(
                         modifier = Modifier
                             .width(10.dp)
                             .height(barHeight)
                             .background(
-                                color = when {
-                                    stepsForDay >= dailyGoal -> Color(0xFF4CAF50)
-                                    else -> Accent
-                                },
+                                color = if (stepsForDay >= dailyGoal) Color(0xFF4CAF50) else Accent,
                                 shape = RoundedCornerShape(50)
                             )
                     )
 
                     Spacer(Modifier.height(10.dp))
 
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(
-                            text = day,
-                            color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                    // ---- quadratino SOLO attorno a giorno + numero ----
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(if (isSelected) Color(0xFFE2E2E2) else Color.Transparent)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = LocalIndication.current
+                            ) { onSelectDay(dayIso) }
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = day,
+                                color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
 
-                        Spacer(Modifier.height(4.dp))
+                            Spacer(Modifier.height(4.dp))
 
-                        Text(
-                            text = dates[index],
-                            color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
+                            Text(
+                                text = dates[index],
+                                color = if (isSelected) TextPrimary else TextSecondary.copy(alpha = 0.7f),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
