@@ -527,6 +527,13 @@ private fun InfoMini(value: String, label: String) {
 fun StreakCard(
     streakDays: Int
 ) {
+
+    val animatedStreak by animateIntAsState(
+        targetValue = streakDays,
+        animationSpec = tween(durationMillis = 450),
+        label = "streakCount"
+    )
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -545,7 +552,7 @@ fun StreakCard(
 
                 Column {
                     Text(
-                        text = streakDays.toString(),
+                        text = animatedStreak.toString(),
                         fontSize = 40.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFFFF8A00)
@@ -573,35 +580,38 @@ fun StreakCard(
                     ) {
 
 
-                        Text(
-                            modifier = Modifier.weight(1f),
-                            text = buildAnnotatedString {
-                                if (streakDays >= 1) {
-                                    append("Keep your ")
-                                    withStyle(
-                                        SpanStyle(
-                                            color = Color(0xFFFF8A00),
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    ) {
-                                        append("Perfect Streak")
+                        val hasStreak = streakDays >= 1
+
+                        AnimatedContent(
+                            targetState = hasStreak,
+                            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                            label = "streakMessage"
+                        ) { ok ->
+                            Text(
+                                text = buildAnnotatedString {
+                                    if (ok) {
+                                        append("Keep your ")
+                                        withStyle(
+                                            SpanStyle(
+                                                color = Color(0xFFFF8A00),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        ) { append("Perfect Streak") }
+                                        append(" \nby walking every day!")
+                                    } else {
+                                        withStyle(
+                                            SpanStyle(
+                                                color = Color(0xFFFF8A00),
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        ) { append("You Can Do It!") }
+                                        append(" \nStart your streak now.")
                                     }
-                                    append(" \nby walking every day!")
-                                } else {
-                                    withStyle(
-                                        SpanStyle(
-                                            color = Color(0xFFFF8A00),
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                    ) {
-                                        append("You Can Do It!")
-                                    }
-                                    append(" \nStart your streak now.")
-                                }
-                            },
-                            fontSize = 14.sp,
-                            color = Color(0xFF444444)
-                        )
+                                },
+                                fontSize = 14.sp,
+                                color = Color(0xFF444444)
+                            )
+                        }
 
                         Spacer(Modifier.width(10.dp))
                         Text(
