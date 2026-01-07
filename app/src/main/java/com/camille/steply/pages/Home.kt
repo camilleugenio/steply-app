@@ -214,12 +214,12 @@ fun Home() {
 
             TopBarLight(
                 placeText = when {
-                    uiState.locationLoading -> "Locating..."
+                    uiState.locationLoading -> "_"
                     uiState.locationError != null -> "Err: ${uiState.locationError}"
                     else -> uiState.currentPlacename
                 },
                 weatherText = when {
-                    uiState.meteoLoading -> "Loading weather..."
+                    uiState.meteoLoading -> "_"
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
