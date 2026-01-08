@@ -72,6 +72,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import java.time.YearMonth
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Box
@@ -91,6 +92,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.navigation.NavController
 import com.camille.steply.pages.Routes
+import com.camille.steply.R
 
 
 
@@ -104,6 +106,16 @@ private val TextSecondary = Color(0xFF8E8E93)
 private val Divider = Color(0xFFE6E6EA)
 private val Accent = Color(0xFFFF8A00)
 
+
+private sealed class NavIcon {
+    data class Vector(val imageVector: ImageVector) : NavIcon()
+    data class Drawable(val resId: Int) : NavIcon()
+}
+
+private data class NavItem(
+    val label: String,
+    val icon: NavIcon
+)
 
 
 
@@ -770,10 +782,11 @@ fun BottomPillNavBar(
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
-        NavItem("Steps", Icons.Default.DirectionsRun),
-        NavItem("Activity", Icons.Default.Whatshot),
-        NavItem("Profile", Icons.Default.Person)
+        NavItem("Steps", NavIcon.Drawable(R.drawable.steps_icon)),
+        NavItem("Activity", NavIcon.Vector(Icons.Default.DirectionsRun)),
+        NavItem("Profile", NavIcon.Vector(Icons.Default.Person))
     )
+
 
     val container = Color(0xFFF3F0EC)
     val selectedBg = Color(0xFFE2E2E2)
@@ -810,12 +823,25 @@ fun BottomPillNavBar(
                             .padding(vertical = 6.dp, horizontal = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = item.label,
-                            tint = if (selected) accent else textNormal,
-                            modifier = Modifier.size(28.dp)
-                        )
+                        when (val ic = item.icon) {
+                            is NavIcon.Vector -> {
+                                Icon(
+                                    imageVector = ic.imageVector,
+                                    contentDescription = item.label,
+                                    tint = if (selected) accent else textNormal,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                            is NavIcon.Drawable -> {
+                                Icon(
+                                    painter = painterResource(id = ic.resId),
+                                    contentDescription = item.label,
+                                    tint = if (selected) accent else textNormal, // oppure Color.Unspecified
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+                        }
+
                         Spacer(Modifier.height(4.dp))
                         Text(
                             text = item.label,
@@ -830,10 +856,6 @@ fun BottomPillNavBar(
     }
 }
 
-private data class NavItem(
-    val label: String,
-    val icon: ImageVector
-)
 
 // -------------------- CALENDAR --------------------
 

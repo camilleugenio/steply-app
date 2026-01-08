@@ -16,6 +16,28 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.camille.steply.pages.Routes
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.indication
+import androidx.compose.material.ripple.rememberRipple
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.draw.shadow
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+
+
 
 @Composable
 fun ActivityScreen(
@@ -51,18 +73,77 @@ fun ActivityScreen(
             }
         }
     ) { padding ->
-        Box(
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
+                .padding(padding)
+        ) {
+
+            ActivitiesTopBar(
+                onAddClick = {
+                    // TODO: naviga alla schermata "Add Activity"
+                    // navController.navigate(Routes.ADD_ACTIVITY)
+                }
+            )
+
+            // lista attività
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Qui andrà la lista delle attività e \nsopra il meteo grande")
+            }
+        }
+    }
+}
+
+
+@Composable
+fun ActivitiesTopBar(
+    onAddClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+
+        // Titolo centrato
+        Text(
+            text = "All Activities",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black,
+            modifier = Modifier.align(Alignment.Center)
+        )
+
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .align(Alignment.CenterEnd)
+                .shadow(
+                    elevation = 8.dp,
+                    shape = CircleShape,
+                    clip = false
+                ) // ⬅️ OMBRA PRIMA
+                .clip(CircleShape)
+                .background(Color.White)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = LocalIndication.current
+                ) {
+                    onAddClick()
+                },
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "Activity",
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = null,
+                tint = Color.Black,
+                modifier = Modifier.size(24.dp)
             )
         }
+
     }
 }
