@@ -196,6 +196,7 @@ class StepForegroundService : Service() {
             .setContentText("Steps: $steps")
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
+            .setShowWhen(false)
             .setAutoCancel(false)
             .setOnlyAlertOnce(true)
             .setSilent(true)

@@ -14,10 +14,16 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         if (intent?.action != Intent.ACTION_BOOT_COMPLETED) return
 
+        val pending = goAsync()
+
         CoroutineScope(Dispatchers.Default).launch {
-            val store = StepDataStore(context.applicationContext)
-            if (store.isTrackingEnabled()) {
-                StepForegroundService.start(context.applicationContext)
+            try {
+                val store = StepDataStore(context.applicationContext)
+                if (store.isTrackingEnabled()) {
+                    StepForegroundService.start(context.applicationContext)
+                }
+            } finally {
+                pending.finish()
             }
         }
     }
