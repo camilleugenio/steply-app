@@ -80,6 +80,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -124,12 +125,15 @@ private data class NavItem(
 fun Home(navController: NavController) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val inPreview = LocalInspectionMode.current
 
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeVmFactory(context.applicationContext as Application)
     )
 
     val uiState by homeViewModel.uiState.collectAsState()
+    val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)
+
 
     val isEmulator = remember {
         val fp = android.os.Build.FINGERPRINT.lowercase()
@@ -147,18 +151,23 @@ fun Home(navController: NavController) {
 
 
     DisposableEffect(Unit) {
-        if (isEmulator) {
+        if (!inPreview && isEmulator) {
             homeViewModel.startAccelerometerSimulation()
-        } else {
-            homeViewModel.startStepUpdates()
         }
-
         onDispose {
-            homeViewModel.stopAccelerometerSimulation()
-            homeViewModel.stopStepUpdates()
+            if (!inPreview && isEmulator) {
+                homeViewModel.stopAccelerometerSimulation()
+            }
+            // ✅ do NOT call stopStepUpdates() here (24/7 service)
         }
     }
 
+    // ✅ If tracking enabled, ensure the service is running (real device only)
+    LaunchedEffect(trackingEnabled, isEmulator, inPreview) {
+        if (!inPreview && !isEmulator && trackingEnabled) {
+            homeViewModel.startStepUpdates()
+        }
+    }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
@@ -258,6 +267,47 @@ fun Home(navController: NavController) {
                 kcal = uiState.selectedKcal,
                 onRefresh = { }
             )
+            Spacer(Modifier.height(12.dp))
+
+            // ✅ NEW: Always-on notification switch
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = Card,
+                shadowElevation = 10.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column {
+                        Text(
+                            text = "Always-on notification",
+                            color = TextPrimary,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (isEmulator) "Disabled on emulator" else "Shows steps 24/7 in the notification area",
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Switch(
+                        checked = trackingEnabled,
+                        enabled = !inPreview,
+                        onCheckedChange = { enabled ->
+                            if (enabled) homeViewModel.startStepUpdates()
+                            else homeViewModel.stopStepUpdates()
+                        }
+                    )
+                }
+            }
+
 
             Spacer(Modifier.height(14.dp))
 

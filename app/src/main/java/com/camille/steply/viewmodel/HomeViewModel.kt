@@ -8,9 +8,12 @@ import com.camille.steply.data.StepDataStore
 import com.camille.steply.data.StepSensor
 import com.camille.steply.data.AccelerometerStepSimulator
 import com.camille.steply.data.todayMidnightEpochMillis
+import com.camille.steply.service.StepForegroundService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -19,6 +22,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import com.camille.steply.data.meteo.OpenMeteoApi
 import com.camille.steply.data.meteo.openMeteoCodeToEmoji
+
 
 
 data class HomeUiState(
@@ -59,6 +63,10 @@ class HomeViewModel(
     private val sensor = StepSensor(appContext)
     private var listening = false
 
+    val trackingEnabled = store.trackingEnabledFlow()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+
     private val _uiState = MutableStateFlow(
         HomeUiState(
             currentDate = LocalDate.now().format(dateFormatter),
@@ -74,6 +82,27 @@ class HomeViewModel(
         refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
         loadSelectedDayFromStore(_uiState.value.selectedDateIso)
         refreshCalendarSteps()
+        viewModelScope.launch {
+            store.todayStepsFlow().collect { steps ->
+                val kmText = stepsToKm(steps)
+                val kmValue = kmText.toDouble()
+                val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+
+                val todayIso = LocalDate.now().toString()
+
+                _uiState.update { state ->
+                    val viewingToday = state.selectedDateIso == todayIso
+                    state.copy(
+                        steps = steps,
+                        km = kmText,
+                        kcal = kcalValue.toString(),
+                        selectedSteps = if (viewingToday) steps else state.selectedSteps,
+                        selectedKm = if (viewingToday) kmText else state.selectedKm,
+                        selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
+                    )
+                }
+            }
+        }
     }
 
 
@@ -136,84 +165,94 @@ class HomeViewModel(
     }
 
 
-    // -------------------- STEPS (REAL) --------------------
+//    // -------------------- STEPS (REAL) --------------------
+//    fun startStepUpdates() {
+//        if (listening) return
+//        listening = true
+//        _uiState.update { it.copy(isTracking = true) }
+//
+//        viewModelScope.launch {
+//            var dayStart = store.getDayStartEpoch()
+//            var baseSteps = store.getBaseStepsFromBoot()
+//            val midnight = todayMidnightEpochMillis()
+//
+//            loadSelectedDayFromStore(_uiState.value.selectedDateIso)
+//
+//            sensor.startListening { currentFromBoot ->
+//                viewModelScope.launch {
+//
+//                    // nuovo giorno -> reset baseline
+//                    if (dayStart != midnight) {
+//                        dayStart = midnight
+//                        baseSteps = currentFromBoot
+//                        store.setBaseline(dayStart, baseSteps)
+//
+//                        val now = LocalDate.now()
+//                        _uiState.update {
+//                            it.copy(
+//                                currentDate = now.format(dateFormatter),
+//                                currentDayname = now.format(dayFormatter),
+//                                currentDateIso = now.toString()
+//                            )
+//                        }
+//                        refreshWeeklySteps(now.toString())
+//                        refreshStreak(now.toString(), _uiState.value.dailyGoal)
+//                    }
+//
+//                    // reboot-safe
+//                    if (currentFromBoot < baseSteps) {
+//                        baseSteps = currentFromBoot
+//                        store.setBaseline(dayStart, baseSteps)
+//                    }
+//
+//                    val todaySteps = (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
+//                    val kmText = stepsToKm(todaySteps)      // String "1.23"
+//                    val kmValue = kmText.toDouble()         // Double 1.23 (ok perché Locale.US)
+//                    val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+//
+//                    store.setStepsForDayStartEpoch(dayStart, todaySteps)
+//                    refreshCalendarSteps()
+//
+//                    val todayIso = LocalDate.now().toString()
+//
+//                    _uiState.update { state ->
+//                        val viewingToday = state.selectedDateIso == todayIso
+//
+//                        state.copy(
+//                            // dati LIVE di oggi (sempre aggiornati)
+//                            steps = todaySteps,
+//                            km = kmText,
+//                            kcal = kcalValue.toString(),
+//
+//                            // dati mostrati nella card (solo se sto guardando oggi)
+//                            selectedSteps = if (viewingToday) todaySteps else state.selectedSteps,
+//                            selectedKm = if (viewingToday) kmText else state.selectedKm,
+//                            selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
+//                        )
+//                    }
+//
+//                    refreshWeeklySteps(_uiState.value.currentDateIso)
+//                    refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
+//
+//                }
+//            }
+//        }
+//    }
+//
+//    fun stopStepUpdates() {
+//        if (!listening) return
+//        listening = false
+//        sensor.stopListening()
+//        _uiState.update { it.copy(isTracking = false) }
+//    }
+    // -------------------- STEPS (REAL via ForegroundService) --------------------
     fun startStepUpdates() {
-        if (listening) return
-        listening = true
+        StepForegroundService.start(appContext)
         _uiState.update { it.copy(isTracking = true) }
-
-        viewModelScope.launch {
-            var dayStart = store.getDayStartEpoch()
-            var baseSteps = store.getBaseStepsFromBoot()
-            val midnight = todayMidnightEpochMillis()
-
-            loadSelectedDayFromStore(_uiState.value.selectedDateIso)
-
-            sensor.startListening { currentFromBoot ->
-                viewModelScope.launch {
-
-                    // nuovo giorno -> reset baseline
-                    if (dayStart != midnight) {
-                        dayStart = midnight
-                        baseSteps = currentFromBoot
-                        store.setBaseline(dayStart, baseSteps)
-
-                        val now = LocalDate.now()
-                        _uiState.update {
-                            it.copy(
-                                currentDate = now.format(dateFormatter),
-                                currentDayname = now.format(dayFormatter),
-                                currentDateIso = now.toString()
-                            )
-                        }
-                        refreshWeeklySteps(now.toString())
-                        refreshStreak(now.toString(), _uiState.value.dailyGoal)
-                    }
-
-                    // reboot-safe
-                    if (currentFromBoot < baseSteps) {
-                        baseSteps = currentFromBoot
-                        store.setBaseline(dayStart, baseSteps)
-                    }
-
-                    val todaySteps = (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
-                    val kmText = stepsToKm(todaySteps)      // String "1.23"
-                    val kmValue = kmText.toDouble()         // Double 1.23 (ok perché Locale.US)
-                    val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
-
-                    store.setStepsForDayStartEpoch(dayStart, todaySteps)
-                    refreshCalendarSteps()
-
-                    val todayIso = LocalDate.now().toString()
-
-                    _uiState.update { state ->
-                        val viewingToday = state.selectedDateIso == todayIso
-
-                        state.copy(
-                            // dati LIVE di oggi (sempre aggiornati)
-                            steps = todaySteps,
-                            km = kmText,
-                            kcal = kcalValue.toString(),
-
-                            // dati mostrati nella card (solo se sto guardando oggi)
-                            selectedSteps = if (viewingToday) todaySteps else state.selectedSteps,
-                            selectedKm = if (viewingToday) kmText else state.selectedKm,
-                            selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
-                        )
-                    }
-
-                    refreshWeeklySteps(_uiState.value.currentDateIso)
-                    refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
-
-                }
-            }
-        }
     }
 
     fun stopStepUpdates() {
-        if (!listening) return
-        listening = false
-        sensor.stopListening()
+        StepForegroundService.stop(appContext)
         _uiState.update { it.copy(isTracking = false) }
     }
 
@@ -236,19 +275,19 @@ class HomeViewModel(
     }
 
 
-    // -------------------- DEBUG (eliminare) --------------------
-    fun addTestStep(amount: Int = 200) {
-        _uiState.update { it.copy(steps = it.steps + amount) }
-    }
-
-    fun resetSteps() {
-        _uiState.update { it.copy(steps = 0, km = "0.00") }
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        sensor.stopListening()
-    }
+//    // -------------------- DEBUG (eliminare) --------------------
+//    fun addTestStep(amount: Int = 200) {
+//        _uiState.update { it.copy(steps = it.steps + amount) }
+//    }
+//
+//    fun resetSteps() {
+//        _uiState.update { it.copy(steps = 0, km = "0.00") }
+//    }
+//
+//    override fun onCleared() {
+//        super.onCleared()
+//        sensor.stopListening()
+//    }
 
     // -------------------- ACCELEROMETRO --------------------
     private var accelSimulator: AccelerometerStepSimulator? = null
@@ -470,6 +509,10 @@ class HomeViewModel(
 
             _uiState.update { it.copy(streakDays = streak) }
         }
+    }
+    override fun onCleared() {
+        super.onCleared()
+        // ✅ Don't stop the foreground service here (must be 24/7)
     }
 
 

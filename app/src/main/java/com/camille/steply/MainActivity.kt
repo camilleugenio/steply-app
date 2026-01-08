@@ -39,6 +39,14 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // POST_NOTIFICATIONS (Android 13+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val p = Manifest.permission.POST_NOTIFICATIONS
+            if (ContextCompat.checkSelfPermission(this, p) != PackageManager.PERMISSION_GRANTED) {
+                activityPermissionLauncher.launch(p)
+            }
+        }
+
         enableEdgeToEdge()
 
         setContent {

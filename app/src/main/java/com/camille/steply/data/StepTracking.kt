@@ -1,6 +1,5 @@
 package com.camille.steply.data
 
-
 import android.content.Context
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -8,27 +7,26 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.ExistingWorkPolicy
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.math.sqrt
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.intPreferencesKey
-import java.time.Instant
-
-
-
 
 // -------------------- TIME UTILS --------------------
 
@@ -65,26 +63,41 @@ class StepDataStore(private val context: Context) {
     private val KEY_SIM_STEPS_TODAY = intPreferencesKey("sim_steps_today")
     private val KEY_SIM_DAY_START = longPreferencesKey("sim_day_start")
 
-    private val dataStore = context.dataStore
+    // ✅ NEW: persisted toggle for "always-on tracking"
+    private val KEY_TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
 
+    private val dataStore = context.dataStore
 
     // -------------------- Versione Mobile --------------------
     suspend fun getDayStartEpoch(): Long {
-        return context.dataStore.data.first()[KEY_DAY_START] ?: 0L
+        return dataStore.data.first()[KEY_DAY_START] ?: 0L
     }
 
     suspend fun getBaseStepsFromBoot(): Long {
-        return context.dataStore.data.first()[KEY_BASE_STEPS] ?: 0L
+        return dataStore.data.first()[KEY_BASE_STEPS] ?: 0L
     }
 
     suspend fun setBaseline(
         dayStartEpoch: Long,
         baseStepsFromBoot: Long
     ) {
-        context.dataStore.edit { prefs ->
+        dataStore.edit { prefs ->
             prefs[KEY_DAY_START] = dayStartEpoch
             prefs[KEY_BASE_STEPS] = baseStepsFromBoot
         }
+    }
+
+    // ✅ NEW: tracking enabled flag (for UI toggle + boot restart)
+    suspend fun setTrackingEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_TRACKING_ENABLED] = enabled }
+    }
+
+    suspend fun isTrackingEnabled(): Boolean {
+        return dataStore.data.first()[KEY_TRACKING_ENABLED] ?: false
+    }
+
+    fun trackingEnabledFlow(): Flow<Boolean> {
+        return dataStore.data.map { prefs -> prefs[KEY_TRACKING_ENABLED] ?: false }
     }
 
     // -------------------- Versione Emulator --------------------
@@ -118,19 +131,33 @@ class StepDataStore(private val context: Context) {
         }
     }
 
-    suspend fun getStepsForDayStartEpoch(dayStartEpoch: Long, zoneId: ZoneId = ZoneId.systemDefault()): Int {
+    // ✅ NEW: Flow for live UI updates
+    fun stepsForDateIsoFlow(iso: String): Flow<Int> {
+        return dataStore.data.map { prefs -> prefs[dayKeyIso(iso)] ?: 0 }
+    }
+
+    fun todayStepsFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<Int> {
+        val todayIso = LocalDate.now(zoneId).toString()
+        return stepsForDateIsoFlow(todayIso)
+    }
+
+    suspend fun getStepsForDayStartEpoch(
+        dayStartEpoch: Long,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ): Int {
         val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
         return getStepsForDateIso(iso)
     }
 
-    suspend fun setStepsForDayStartEpoch(dayStartEpoch: Long, steps: Int, zoneId: ZoneId = ZoneId.systemDefault()) {
+    suspend fun setStepsForDayStartEpoch(
+        dayStartEpoch: Long,
+        steps: Int,
+        zoneId: ZoneId = ZoneId.systemDefault()
+    ) {
         val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
         setStepsForDateIso(iso, steps)
     }
-
-
 }
-
 
 // -------------------- STEP SENSOR --------------------
 
@@ -265,8 +292,8 @@ class AccelerometerStepSimulator(
         sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
     private var lastStepTime = 0L
-    private val threshold = 11.5f          // soglia movimento
-    private val minStepInterval = 400L     // ms tra passi
+    private val threshold = 11.5f
+    private val minStepInterval = 400L
 
     fun start() {
         sensorManager.registerListener(
@@ -296,4 +323,3 @@ class AccelerometerStepSimulator(
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
 }
-
