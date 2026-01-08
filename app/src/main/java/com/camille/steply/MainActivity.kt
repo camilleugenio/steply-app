@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import com.camille.steply.pages.Home
+import com.camille.steply.pages.MainNavGraph
 import com.camille.steply.data.MidnightBaselineWorker
 import com.camille.steply.ui.theme.SteplyTheme
 
@@ -42,7 +43,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             SteplyTheme {
-                Home()
+                MainNavGraph()
             }
         }
     }

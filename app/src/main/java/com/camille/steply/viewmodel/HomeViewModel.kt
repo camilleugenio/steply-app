@@ -124,6 +124,18 @@ class HomeViewModel(
         }
     }
 
+    // -------------------- REFRESH LOCATION DOPO UN PO --------------------
+
+    private var lastPlaceRefreshMs: Long = 0L
+
+    fun refreshPlaceThrottled(minIntervalMs: Long = 60_000L) {
+        val now = System.currentTimeMillis()
+        if (now - lastPlaceRefreshMs < minIntervalMs) return
+        lastPlaceRefreshMs = now
+        refreshPlace()
+    }
+
+
     // -------------------- STEPS (REAL) --------------------
     fun startStepUpdates() {
         if (listening) return

@@ -89,6 +89,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.navigation.NavController
+import com.camille.steply.pages.Routes
+
 
 
 
@@ -104,9 +107,9 @@ private val Accent = Color(0xFFFF8A00)
 
 
 
-@Preview
+
 @Composable
-fun Home() {
+fun Home(navController: NavController) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -148,7 +151,7 @@ fun Home() {
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
-        if (granted) homeViewModel.refreshPlace()
+        if (granted) homeViewModel.refreshPlaceThrottled()
     }
 
     // ✅ Refresh location EVERY TIME the app/screen is resumed (opened again)
@@ -161,7 +164,7 @@ fun Home() {
                 ) == PackageManager.PERMISSION_GRANTED
 
                 if (granted) {
-                    homeViewModel.refreshPlace()
+                    homeViewModel.refreshPlaceThrottled()
                 } else {
                     // Optional: request permission when opening the app
                     locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -179,7 +182,7 @@ fun Home() {
     var selectedTab by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
-        homeViewModel.refreshPlace()
+        homeViewModel.refreshPlaceThrottled()
     }
 
     var showCalendar by remember { mutableStateOf(false) }
@@ -196,8 +199,12 @@ fun Home() {
                     selectedIndex = selectedTab,
                     onSelect = { index ->
                         selectedTab = index
-                        if (index == 0) { // Steps tab
-                            homeViewModel.selectToday()
+                        when (index) {
+                            0 -> {
+                                homeViewModel.selectToday()
+                                // già su steps -> non serve navigare
+                            }
+                            1 -> navController.navigate(Routes.ACTIVITY) { launchSingleTop = true }
                         }
                     }
                 )

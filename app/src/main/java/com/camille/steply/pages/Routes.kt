@@ -1,0 +1,8 @@
+package com.camille.steply.pages
+
+
+object Routes {
+    const val STEPS = "steps"
+    const val ACTIVITY = "activity"
+    const val PROFILE = "profile"
+}

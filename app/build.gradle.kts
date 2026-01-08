@@ -73,5 +73,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.compose.animation:animation")
+    implementation("androidx.navigation:navigation-compose:2.8.0")
 
 }
