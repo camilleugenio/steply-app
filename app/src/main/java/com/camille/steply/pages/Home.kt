@@ -207,7 +207,13 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
 
     LaunchedEffect(Unit) {
-        homeViewModel.refreshPlaceThrottled()
+        val granted =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
+        if (granted) {
+            homeViewModel.refreshPlaceThrottled()
+        }
     }
 
     var showCalendar by remember { mutableStateOf(false) }
