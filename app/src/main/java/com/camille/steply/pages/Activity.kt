@@ -75,6 +75,16 @@ fun ActivityScreen(
                                 }
                             }
                             1 -> Unit
+                            2 -> {
+                                val popped = navController.popBackStack(Routes.PROFILE, inclusive = false)
+                                if (!popped) {
+                                    navController.navigate(Routes.PROFILE) { launchSingleTop = true }
+                                }
+                            }
+
+
+
+                            2 -> Unit // already here
                         }
                     }
                 )
