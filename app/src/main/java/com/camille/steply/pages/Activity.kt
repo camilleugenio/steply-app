@@ -1,59 +1,84 @@
 package com.camille.steply.pages
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.IntOffset
-import kotlin.math.roundToInt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Surface
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.runtime.Composable
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.navigation.NavController
-import androidx.compose.ui.graphics.vector.ImageVector
+import com.camille.steply.viewmodel.ActivityViewModel
 import com.camille.steply.viewmodel.HomeViewModel
+import com.camille.steply.viewmodel.WorkoutType
+import com.camille.steply.viewmodel.workoutColor
+import kotlin.math.roundToInt
 
-
-private enum class WorkoutType { WALK, RUN, CYCLING }
 
 @Composable
 fun ActivityScreen(
     navController: NavController,
     homeViewModel: HomeViewModel
 ) {
+    val activityViewModel: ActivityViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val activityState by activityViewModel.uiState.collectAsState()
 
     val uiState by homeViewModel.uiState.collectAsState()
 
+    // SE COUNTDOWN ATTIVO: SPARISCE TUTTO E MOSTRA SOLO QUESTO
+    if (activityState.isCountingDown && activityState.countdownType != null) {
+        CountdownFullScreen(
+            number = activityState.secondsLeft,
+            label = activityState.phaseText,
+            color = workoutColor(activityState.countdownType!!)
+        )
+        return
+    }
+
+    // ---------------- UI NORMALE ----------------
 
     Scaffold(
         containerColor = Color(0xFFF4F1EC),
@@ -74,17 +99,15 @@ fun ActivityScreen(
                                     navController.navigate(Routes.STEPS) { launchSingleTop = true }
                                 }
                             }
+
                             1 -> Unit
+
                             2 -> {
                                 val popped = navController.popBackStack(Routes.PROFILE, inclusive = false)
                                 if (!popped) {
                                     navController.navigate(Routes.PROFILE) { launchSingleTop = true }
                                 }
                             }
-
-
-
-                            2 -> Unit // already here
                         }
                     }
                 )
@@ -100,8 +123,7 @@ fun ActivityScreen(
 
             ActivitiesTopBar(
                 onWorkoutSelected = { type ->
-                    // TODO: qui in futuro avvierai davvero l’allenamento
-                    // type = WALK / RUN / CYCLING
+                    activityViewModel.startCountdown(type)
                 }
             )
 
@@ -119,9 +141,6 @@ fun ActivityScreen(
                 )
             }
 
-
-
-
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -130,13 +149,13 @@ fun ActivityScreen(
                     text = "Click + to start your first workout",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF8E8E93),
-                    modifier = Modifier.align(Alignment.Center)
+                    color = Color(0xFF8E8E93)
                 )
             }
         }
     }
 }
+
 
 
 // -------------------- TOP BAR --------------------
@@ -351,6 +370,38 @@ private fun ActivityWeatherHeader(
                 fontSize = 34.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black
+            )
+        }
+    }
+}
+
+// -------------------- COUNTDOWN --------------------
+
+@Composable
+private fun CountdownFullScreen(
+    number: Int,
+    label: String,
+    color: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF4F1EC)), // ✅ sfondo fisso
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = number.toString(),
+                fontSize = 120.sp,
+                fontWeight = FontWeight.Bold,
+                color = color // ✅ colore attività SOLO sul numero
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = label,
+                fontSize = 44.sp,
+                fontWeight = FontWeight.Medium,
+                color = color.copy(alpha = 0.7f) // ✅ stesso colore, più soft
             )
         }
     }
