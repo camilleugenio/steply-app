@@ -124,14 +124,10 @@ private data class NavItem(
 
 
 @Composable
-fun Home(navController: NavController) {
+fun Home(navController: NavController, homeViewModel: HomeViewModel) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val inPreview = LocalInspectionMode.current
-
-    val homeViewModel: HomeViewModel = viewModel(
-        factory = HomeVmFactory(context.applicationContext as Application)
-    )
 
     val uiState by homeViewModel.uiState.collectAsState()
     val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)

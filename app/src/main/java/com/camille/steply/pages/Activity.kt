@@ -41,14 +41,20 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavController
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.camille.steply.viewmodel.HomeViewModel
 
 
 private enum class WorkoutType { WALK, RUN, CYCLING }
 
 @Composable
 fun ActivityScreen(
-    navController: NavController
+    navController: NavController,
+    homeViewModel: HomeViewModel
 ) {
+
+    val uiState by homeViewModel.uiState.collectAsState()
+
+
     Scaffold(
         containerColor = Color(0xFFF4F1EC),
         bottomBar = {
@@ -88,6 +94,23 @@ fun ActivityScreen(
                     // type = WALK / RUN / CYCLING
                 }
             )
+
+            Spacer(Modifier.height(10.dp))
+
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                ActivityWeatherHeader(
+                    temp = uiState.meteoTempC,
+                    emoji = uiState.meteoDesc,
+                    place = uiState.currentPlacename,
+                    loading = uiState.meteoLoading
+                )
+            }
+
+
+
 
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -278,4 +301,49 @@ fun WorkoutRow(
         )
     }
 }
+
+// -------------------- WEATHER --------------------
+
+@Composable
+private fun ActivityWeatherHeader(
+    temp: String,
+    emoji: String,
+    place: String,
+    loading: Boolean
+) {
+    if (loading) return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = emoji,
+            fontSize = 70.sp
+        )
+
+        Spacer(Modifier.width(16.dp))
+
+        Column(
+            horizontalAlignment = Alignment.Start
+        ){
+            Text(
+                text = place,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.DarkGray
+            )
+            Text(
+                text = "$temp°C",
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        }
+    }
+}
+
 

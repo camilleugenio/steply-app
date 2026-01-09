@@ -74,5 +74,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.compose.animation:animation")
     implementation("androidx.navigation:navigation-compose:2.8.0")
+    implementation("com.google.accompanist:accompanist-navigation-animation:0.34.0")
 
 }
