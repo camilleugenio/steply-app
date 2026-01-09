@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.camille.steply.viewmodel.HomeViewModel
 
 @Composable
 fun Profile(navController: NavController) {
