@@ -401,26 +401,38 @@ private fun TopBarLight(
                     )
                 }
                 Spacer(Modifier.width(6.dp))
-                Switch(
+//                Switch(
+//                    checked = trackingEnabled,
+//                    enabled = trackingSwitchEnabled,
+//                    onCheckedChange = onToggleTracking,
+//                    thumbContent = {
+//                        Icon(
+//                            imageVector = Icons.Default.Notifications,
+//                            contentDescription = null,
+//                            tint = if (trackingEnabled) Accent else Color.Gray,
+//                            modifier = Modifier.size(14.dp)
+//                        )
+//                    },
+//                    colors = SwitchDefaults.colors(
+//                        checkedTrackColor = Accent,
+//                        uncheckedTrackColor = Color(0xFFE2E2E2),
+//                        checkedThumbColor = Color.White,
+//                        uncheckedThumbColor = Color.White
+//                    )
+//
+//                )
+                IconToggleButton(
                     checked = trackingEnabled,
                     enabled = trackingSwitchEnabled,
-                    onCheckedChange = onToggleTracking,
-                    thumbContent = {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = null,
-                            tint = if (trackingEnabled) Accent else Color.Gray,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = Accent,
-                        uncheckedTrackColor = Color(0xFFE2E2E2),
-                        checkedThumbColor = Color.White,
-                        uncheckedThumbColor = Color.White
+                    onCheckedChange = onToggleTracking
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = if (trackingEnabled) Accent else Color.Gray
                     )
+                }
 
-                )
                 Spacer(Modifier.width(6.dp))
             }
         }
