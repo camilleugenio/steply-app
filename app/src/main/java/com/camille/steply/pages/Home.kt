@@ -219,15 +219,24 @@ fun Home(navController: NavController) {
                 contentAlignment = Alignment.Center
             ) {
                 BottomPillNavBar(
-                    selectedIndex = selectedTab,
+                    selectedIndex = 0,
                     onSelect = { index ->
-                        selectedTab = index
                         when (index) {
                             0 -> {
-                                homeViewModel.selectToday()
-                                // già su steps -> non serve navigare
+                               homeViewModel.selectToday()
                             }
-                            1 -> navController.navigate(Routes.ACTIVITY) { launchSingleTop = true }
+                            1 -> {
+                               val popped = navController.popBackStack(Routes.ACTIVITY, inclusive = false)
+                               if (!popped) {
+                                   navController.navigate(Routes.ACTIVITY) { launchSingleTop = true }
+                               }
+                           }
+                           2 -> {
+                               val popped = navController.popBackStack(Routes.PROFILE, inclusive = false)
+                               if (!popped) {
+                                   navController.navigate(Routes.PROFILE) { launchSingleTop = true }
+                               }
+                            }
                         }
                     }
                 )

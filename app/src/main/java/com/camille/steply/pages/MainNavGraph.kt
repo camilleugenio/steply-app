@@ -28,6 +28,7 @@ fun MainNavGraph() {
     ) {
         composable(Routes.STEPS) { Home(navController = navController) }
         composable(Routes.ACTIVITY) { ActivityScreen(navController = navController) }
+        composable(Routes.PROFILE) { Profile(navController = navController) }
     }
 
 }
