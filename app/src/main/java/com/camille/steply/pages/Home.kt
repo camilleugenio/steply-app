@@ -94,6 +94,8 @@ import androidx.compose.animation.scaleOut
 import androidx.navigation.NavController
 import com.camille.steply.pages.Routes
 import com.camille.steply.R
+import androidx.compose.material.icons.filled.Notifications
+
 
 
 
@@ -251,9 +253,24 @@ fun Home(navController: NavController) {
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
+                trackingEnabled = trackingEnabled,
+                trackingSwitchEnabled = !inPreview,
+                onToggleTracking = { enabled ->
+                    if (enabled) homeViewModel.startStepUpdates()
+                    else homeViewModel.stopStepUpdates()
+                },
                 onSettings = { },
-                onCalendar = { showCalendar = true }
+                onCalendar = { showCalendar = true },
+
             )
+//            Switch(
+//                checked = trackingEnabled,
+//                enabled = !inPreview,
+//                onCheckedChange = { enabled ->
+//                    if (enabled) homeViewModel.startStepUpdates()
+//                    else homeViewModel.stopStepUpdates()
+//                }
+//            )
 
             Spacer(Modifier.height(14.dp))
 
@@ -269,47 +286,7 @@ fun Home(navController: NavController) {
             )
             Spacer(Modifier.height(12.dp))
 
-            // ✅ NEW: Always-on notification switch
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                color = Card,
-                shadowElevation = 10.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = "Always-on notification",
-                            color = TextPrimary,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = if (isEmulator) "Disabled on emulator" else "Shows steps 24/7 in the notification area",
-                            color = TextSecondary,
-                            fontSize = 12.sp
-                        )
-                    }
 
-                    Switch(
-                        checked = trackingEnabled,
-                        enabled = !inPreview,
-                        onCheckedChange = { enabled ->
-                            if (enabled) homeViewModel.startStepUpdates()
-                            else homeViewModel.stopStepUpdates()
-                        }
-                    )
-                }
-            }
-
-
-            Spacer(Modifier.height(14.dp))
 
             // -------------------- STREAK --------------------
             StreakCard(streakDays = uiState.streakDays)
@@ -349,6 +326,9 @@ fun Home(navController: NavController) {
 private fun TopBarLight(
     placeText: String,
     weatherText: String,
+    trackingEnabled: Boolean,
+    trackingSwitchEnabled: Boolean,
+    onToggleTracking: (Boolean) -> Unit,
     onCalendar: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -415,6 +395,28 @@ private fun TopBarLight(
                         tint = TextPrimary
                     )
                 }
+                Spacer(Modifier.width(6.dp))
+                Switch(
+                    checked = trackingEnabled,
+                    enabled = trackingSwitchEnabled,
+                    onCheckedChange = onToggleTracking,
+                    thumbContent = {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = if (trackingEnabled) Accent else Color.Gray,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = Accent,
+                        uncheckedTrackColor = Color(0xFFE2E2E2),
+                        checkedThumbColor = Color.White,
+                        uncheckedThumbColor = Color.White
+                    )
+
+                )
+                Spacer(Modifier.width(6.dp))
             }
         }
 
@@ -489,11 +491,11 @@ private fun StepsMainCard(
                     .padding(6.dp)
                     .size(40.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Refresh",
-                    tint = TextSecondary
-                )
+//                Icon(
+//                    imageVector = Icons.Default.Refresh,
+//                    contentDescription = "Refresh",
+//                    tint = TextSecondary
+//                )
             }
 
             Column(
