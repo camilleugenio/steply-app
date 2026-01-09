@@ -244,12 +244,12 @@ fun Home(navController: NavController) {
 
             TopBarLight(
                 placeText = when {
-                    uiState.locationLoading -> "_"
+                    uiState.locationLoading -> ""
                     uiState.locationError != null -> "Err: ${uiState.locationError}"
                     else -> uiState.currentPlacename
                 },
                 weatherText = when {
-                    uiState.meteoLoading -> "_"
+                    uiState.meteoLoading -> ""
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
