@@ -132,6 +132,12 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
     val uiState by homeViewModel.uiState.collectAsState()
     val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)
 
+    var localTrackingEnabled by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(trackingEnabled) {
+        localTrackingEnabled = trackingEnabled
+    }
+
 
     val isEmulator = remember {
         val fp = android.os.Build.FINGERPRINT.lowercase()
@@ -258,9 +264,10 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
-                trackingEnabled = trackingEnabled,
+                trackingEnabled = localTrackingEnabled,
                 trackingSwitchEnabled = !inPreview,
                 onToggleTracking = { enabled ->
+                    localTrackingEnabled = enabled
                     if (enabled) homeViewModel.startStepUpdates()
                     else homeViewModel.stopStepUpdates()
                 },
@@ -326,6 +333,9 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 
 }
 
+
+
+// COMPOSABLES USED IN HOME
 // -------------------- TOP BAR --------------------
 @Composable
 private fun TopBarLight(
@@ -401,30 +411,12 @@ private fun TopBarLight(
                     )
                 }
                 Spacer(Modifier.width(6.dp))
-//                Switch(
-//                    checked = trackingEnabled,
-//                    enabled = trackingSwitchEnabled,
-//                    onCheckedChange = onToggleTracking,
-//                    thumbContent = {
-//                        Icon(
-//                            imageVector = Icons.Default.Notifications,
-//                            contentDescription = null,
-//                            tint = if (trackingEnabled) Accent else Color.Gray,
-//                            modifier = Modifier.size(14.dp)
-//                        )
-//                    },
-//                    colors = SwitchDefaults.colors(
-//                        checkedTrackColor = Accent,
-//                        uncheckedTrackColor = Color(0xFFE2E2E2),
-//                        checkedThumbColor = Color.White,
-//                        uncheckedThumbColor = Color.White
-//                    )
-//
-//                )
+
                 IconToggleButton(
                     checked = trackingEnabled,
                     enabled = trackingSwitchEnabled,
                     onCheckedChange = onToggleTracking
+
                 ) {
                     Icon(
                         imageVector = Icons.Default.Notifications,
