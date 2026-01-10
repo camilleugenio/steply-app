@@ -10,6 +10,12 @@ import java.io.IOException
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 
 data class LatLng(val lat: Double, val lon: Double)
 
@@ -73,4 +79,32 @@ class LocationRepository(
                 cont.resumeWithException(e)
             }
         }
+
+
+
+    fun locationUpdates(
+        intervalMs: Long = 1000L,
+        minDistanceMeters: Float = 2f
+    ): Flow<LatLng> = callbackFlow {
+
+        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
+            .setMinUpdateDistanceMeters(minDistanceMeters)
+            .build()
+
+        val callback = object : LocationCallback() {
+            override fun onLocationResult(result: LocationResult) {
+                val loc = result.lastLocation ?: return
+                trySend(LatLng(loc.latitude, loc.longitude))
+            }
+        }
+
+        try {
+            fused.requestLocationUpdates(request, callback, context.mainLooper)
+        } catch (se: SecurityException) {
+            close(se)
+        }
+
+        awaitClose { fused.removeLocationUpdates(callback) }
+    }
+
 }

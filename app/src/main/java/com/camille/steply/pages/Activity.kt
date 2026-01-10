@@ -59,6 +59,10 @@ import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.collectLatest
 import com.camille.steply.viewmodel.ActivityEvent
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.runtime.DisposableEffect
 
 
 @Composable
@@ -70,10 +74,17 @@ fun ActivityScreen(
     val activityState by activityViewModel.uiState.collectAsState()
     val uiState by homeViewModel.uiState.collectAsState()
 
+    var navigating by remember { mutableStateOf(false) }
+    var navType by remember { mutableStateOf<WorkoutType?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     LaunchedEffect(Unit) {
         activityViewModel.events.collectLatest { event ->
             when (event) {
                 is ActivityEvent.NavigateToWorkout -> {
+                    navType = event.type
+                    navigating = true
+
                     navController.navigate("${Routes.WORKOUT}/${event.type.name}") {
                         launchSingleTop = true
                     }
@@ -82,15 +93,31 @@ fun ActivityScreen(
         }
     }
 
+
     // SE COUNTDOWN ATTIVO: SPARISCE TUTTO E MOSTRA SOLO QUESTO
-    if (activityState.isCountingDown && activityState.countdownType != null) {
+    if ((activityState.isCountingDown && activityState.countdownType != null) || navigating) {
+        val t = navType ?: activityState.countdownType ?: WorkoutType.WALK
+
         CountdownFullScreen(
             number = activityState.secondsLeft,
             label = activityState.phaseText,
-            color = workoutColor(activityState.countdownType!!)
+            color = workoutColor(t)
         )
         return
     }
+
+    DisposableEffect(lifecycleOwner) {
+        val obs = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                navigating = false
+                navType = null
+                activityViewModel.cancelCountdown()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
 
     // ---------------- UI NORMALE ----------------
 

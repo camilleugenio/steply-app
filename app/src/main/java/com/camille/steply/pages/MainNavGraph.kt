@@ -13,6 +13,12 @@ import androidx.navigation.compose.rememberNavController
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.HomeVmFactory
 import com.camille.steply.viewmodel.WorkoutType
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+
 
 @Composable
 fun MainNavGraph() {
@@ -22,6 +28,37 @@ fun MainNavGraph() {
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeVmFactory(context.applicationContext as Application)
     )
+
+    // ✅ Detect emulator once
+    val isEmulator = remember {
+        val fp = android.os.Build.FINGERPRINT.lowercase()
+        val model = android.os.Build.MODEL.lowercase()
+        val brand = android.os.Build.BRAND.lowercase()
+        val device = android.os.Build.DEVICE.lowercase()
+        fp.contains("generic") ||
+                fp.contains("emulator") ||
+                model.contains("emulator") ||
+                model.contains("sdk") ||
+                brand.contains("generic") ||
+                device.contains("generic")
+    }
+
+    // ✅ Start simulator ONCE for the whole app (emulator only)
+    DisposableEffect(Unit) {
+        if (isEmulator) homeViewModel.startAccelerometerSimulation()
+        onDispose {
+            if (isEmulator) homeViewModel.stopAccelerometerSimulation()
+        }
+    }
+
+    // ✅ Start/stop the real foreground service based on stored toggle
+    val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)
+    LaunchedEffect(trackingEnabled, isEmulator) {
+        if (!isEmulator) {
+            if (trackingEnabled) homeViewModel.startStepUpdates()
+            else homeViewModel.stopStepUpdates()
+        }
+    }
 
     NavHost(
         navController = navController,

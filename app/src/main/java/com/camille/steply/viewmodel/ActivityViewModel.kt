@@ -15,12 +15,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class WorkoutType { WALK, RUN, CYCLING }
-
 fun workoutColor(type: WorkoutType): Color = when (type) {
     WorkoutType.WALK -> Color(0xFF2F80FF)   // blu
     WorkoutType.RUN -> Color(0xFF9B51E0)    // viola
     WorkoutType.CYCLING -> Color(0xFF27AE60)// verde
 }
+
+private val _navigateToWorkout = MutableSharedFlow<WorkoutType>(extraBufferCapacity = 1)
+val navigateToWorkout = _navigateToWorkout.asSharedFlow()
 
 data class ActivityUiState(
     val countdownType: WorkoutType? = null,
@@ -64,6 +66,7 @@ class ActivityViewModel : ViewModel() {
             _uiState.update { it.copy(secondsLeft = 1, phaseText = "Go") }
 
             delay(650)
+            _navigateToWorkout.tryEmit(type)
             _uiState.update {
                 it.copy(
                     countdownType = null,

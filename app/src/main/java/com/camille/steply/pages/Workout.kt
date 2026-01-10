@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.camille.steply.viewmodel.HomeViewModel
+import com.camille.steply.viewmodel.WorkoutViewModel
 import com.camille.steply.viewmodel.WorkoutType
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
@@ -26,6 +27,13 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.graphics.vector.ImageVector
+import android.app.Application
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
+
 
 @Composable
 fun WorkoutScreen(
@@ -34,6 +42,12 @@ fun WorkoutScreen(
     type: WorkoutType
 ) {
     val homeState by homeViewModel.uiState.collectAsState()
+
+    val context = LocalContext.current
+    val workoutVm: com.camille.steply.viewmodel.WorkoutViewModel = viewModel(
+        factory = com.camille.steply.viewmodel.WorkoutVmFactory(context.applicationContext as Application)
+    )
+    val mapState by workoutVm.state.collectAsState()
 
     var paused by remember { mutableStateOf(false) }
     var elapsedSec by remember { mutableStateOf(0) }
@@ -46,6 +60,15 @@ fun WorkoutScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        workoutVm.start() // parte subito quando entri nella schermata
+    }
+
+    LaunchedEffect(paused) {
+        if (paused) workoutVm.pause() else workoutVm.resume()
+    }
+
+
     val title = when (type) {
         WorkoutType.RUN -> "RUN"
         WorkoutType.WALK -> "WALK"
@@ -55,7 +78,7 @@ fun WorkoutScreen(
     val durationText = remember(elapsedSec) { formatDuration(elapsedSec) }
 
     // Per ora placeholders: poi li colleghiamo a GPS/step/calorie reali
-    val kmText = "0.00"
+    val kmText = String.format(java.util.Locale.US, "%.2f", mapState.distanceMeters / 1000.0)
     val kcalText = "0"
 
     Column(
@@ -175,7 +198,7 @@ fun WorkoutScreen(
 
         Spacer(Modifier.height(5.dp))
 
-        // -------- MAP CARD (placeholder) --------
+        // -------- MAP CARD (Google Map) --------
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -184,17 +207,32 @@ fun WorkoutScreen(
             color = Color(0xFFE8E8E8),
             shadowElevation = 12.dp
         ) {
-            Box(
+            val last = mapState.points.lastOrNull() ?: LatLng(41.9028, 12.4964) // fallback Roma
+
+            val cameraState = rememberCameraPositionState {
+                position = CameraPosition.fromLatLngZoom(last, 17f)
+            }
+
+            // segue l’utente
+            LaunchedEffect(last) {
+                cameraState.position = CameraPosition.fromLatLngZoom(last, 17f)
+            }
+
+            GoogleMap(
                 modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "MAP PLACEHOLDER",
-                    color = Color(0xFF666666),
-                    fontWeight = FontWeight.Medium
+                cameraPositionState = cameraState,
+                properties = MapProperties(isMyLocationEnabled = true),
+                uiSettings = MapUiSettings(
+                    myLocationButtonEnabled = true,
+                    zoomControlsEnabled = false
                 )
+            ) {
+                if (mapState.points.size >= 2) {
+                    Polyline(points = mapState.points)
+                }
             }
         }
+
 
         Spacer(Modifier.height(14.dp))
 

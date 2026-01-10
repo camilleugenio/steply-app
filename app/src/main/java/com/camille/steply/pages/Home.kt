@@ -154,17 +154,17 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 
 
 
-    DisposableEffect(Unit) {
-        if (!inPreview && isEmulator) {
-            homeViewModel.startAccelerometerSimulation()
-        }
-        onDispose {
-            if (!inPreview && isEmulator) {
-                homeViewModel.stopAccelerometerSimulation()
-            }
-            // ✅ do NOT call stopStepUpdates() here (24/7 service)
-        }
-    }
+//    DisposableEffect(Unit) {
+//        if (!inPreview && isEmulator) {
+//            homeViewModel.startAccelerometerSimulation()
+//        }
+//        onDispose {
+//            if (!inPreview && isEmulator) {
+//                homeViewModel.stopAccelerometerSimulation()
+//            }
+//            // ✅ do NOT call stopStepUpdates() here (24/7 service)
+//        }
+//    }
 
     // ✅ If tracking enabled, ensure the service is running (real device only)
     LaunchedEffect(trackingEnabled, isEmulator, inPreview) {
@@ -274,8 +274,7 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                 trackingSwitchEnabled = !inPreview,
                 onToggleTracking = { enabled ->
                     localTrackingEnabled = enabled
-                    if (enabled) homeViewModel.startStepUpdates()
-                    else homeViewModel.stopStepUpdates()
+                    homeViewModel.setTrackingEnabled(enabled) // <-- devi avere questa funzione nel VM
                 },
                 onSettings = { },
                 onCalendar = { showCalendar = true },

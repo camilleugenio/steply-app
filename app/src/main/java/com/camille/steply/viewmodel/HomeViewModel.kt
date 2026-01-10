@@ -292,6 +292,10 @@ class HomeViewModel(
     // -------------------- ACCELEROMETRO --------------------
     private var accelSimulator: AccelerometerStepSimulator? = null
 
+    fun setTrackingEnabled(enabled: Boolean) {
+        viewModelScope.launch { store.setTrackingEnabled(enabled) }
+    }
+
     fun startAccelerometerSimulation() {
         if (accelSimulator != null) return
 
