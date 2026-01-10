@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,89 +26,102 @@ class ProfileViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState
 
-    // Firebase handles (stub-ready)
+    // Riferimenti a Firebase
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
     private val storage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
+
+    init {
+        // Appena apri la schermata profilo, l'app fa il login da sola
+        auth.signInWithEmailAndPassword("test@steply.it", "password")
+            .addOnSuccessListener {
+                _uiState.update { it.copy(message = "Login automatico riuscito!") }
+            }
+            .addOnFailureListener {
+                _uiState.update { it.copy(message = "Errore login automatico: ${it.message}") }
+            }
+    }
 
     fun onUsernameChange(value: String) = _uiState.update { it.copy(username = value, message = null) }
     fun onNameChange(value: String) = _uiState.update { it.copy(name = value, message = null) }
     fun onSurnameChange(value: String) = _uiState.update { it.copy(surname = value, message = null) }
     fun onPasswordChange(value: String) = _uiState.update { it.copy(password = value, message = null) }
+    fun onTogglePasswordVisibility() = _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
+    fun onPhotoSelected(uri: Uri?) = _uiState.update { it.copy(profilePhotoUri = uri) }
 
-    fun onPhotoSelected(uri: Uri?) {
-        _uiState.update { it.copy(profilePhotoUri = uri, message = null) }
-    }
-
-    fun togglePasswordVisibility() {
-        _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
-    }
-
+    /**
+     * QUESTA È LA FUNZIONE CHE VIENE CHIAMATA DAL TASTO "SALVA" NELLA UI
+     */
     fun saveProfile() {
         val s = _uiState.value
-        if (s.username.isBlank() || s.name.isBlank() || s.surname.isBlank() || s.password.isBlank()) {
-            _uiState.update { it.copy(message = "Please fill all fields.") }
-            return
-        }
-        if (s.password.length < 6) {
-            _uiState.update { it.copy(message = "Password must be at least 6 characters.") }
-            return
-        }
+        _uiState.update { it.copy(isSaving = true, message = "Salvataggio in corso...") }
 
-        _uiState.update { it.copy(isSaving = true, message = null) }
-
-        // ✅ Firebase stub: later you’ll replace this with real calls
-        saveProfileToFirebaseStub(
+        // Chiamiamo la funzione REALE invece dello stub
+        saveProfileToFirebase(
             username = s.username,
             name = s.name,
             surname = s.surname,
-            password = s.password,
             photoUri = s.profilePhotoUri
         )
     }
 
     /**
-     * STUB ONLY.
-     * Here’s the intended flow when you implement it:
-     * 1) Ensure user is authenticated (auth.currentUser != null)
-     * 2) Upload photoUri to Storage (if not null) and get downloadUrl
-     * 3) Write username/name/surname/photoUrl to Firestore under users/{uid}
-     * 4) (Optional) update password via auth.currentUser?.updatePassword(...)
+     * LOGICA REALE DI SALVATAGGIO SU CLOUD (MILANO europe-west8)
      */
-    private fun saveProfileToFirebaseStub(
+    private fun saveProfileToFirebase(
         username: String,
         name: String,
         surname: String,
-        password: String,
         photoUri: Uri?
     ) {
-        // This line prevents "unused" warnings while still being a stub:
-        val uid = auth.currentUser?.uid
-
-        // Pretend we did it (stub behavior)
-        _uiState.update {
-            it.copy(
-                isSaving = false,
-                message = if (uid == null)
-                    "Firebase stub: no logged-in user (auth.currentUser is null)."
-                else
-                    "Firebase stub: would save profile for uid=$uid ✅"
-            )
+        val user = auth.currentUser
+        if (user == null) {
+            _uiState.update { it.copy(isSaving = false, message = "Errore: Devi essere loggato!") }
+            return
         }
 
-        // --- Real implementation later (outline) ---
-        // val user = auth.currentUser ?: return
-        // val userDoc = db.collection("users").document(user.uid)
-        //
-        // if (photoUri != null) {
-        //   val ref = storage.reference.child("profilePhotos/${user.uid}.jpg")
-        //   ref.putFile(photoUri).continueWithTask { ref.downloadUrl }.addOnSuccessListener { url ->
-        //       userDoc.set(mapOf("username" to username, "name" to name, "surname" to surname, "photoUrl" to url.toString()))
-        //   }
-        // } else {
-        //   userDoc.set(mapOf("username" to username, "name" to name, "surname" to surname), SetOptions.merge())
-        // }
-        //
-        // user.updatePassword(password) // optional + requires recent login
+        val uid = user.uid
+
+        if (photoUri != null) {
+            // 1. Carichiamo la foto su Firebase Storage
+            val storageRef = storage.reference.child("profilePhotos/$uid.jpg")
+
+            storageRef.putFile(photoUri)
+                .continueWithTask { task ->
+                    if (!task.isSuccessful) task.exception?.let { throw it }
+                    storageRef.downloadUrl
+                }
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val downloadUrl = task.result.toString()
+                        // 2. Salviamo i dati + link foto su Firestore
+                        writeToFirestore(uid, username, name, surname, downloadUrl)
+                    } else {
+                        _uiState.update { it.copy(isSaving = false, message = "Errore caricamento immagine.") }
+                    }
+                }
+        } else {
+            // Se non c'è una nuova foto, salviamo solo i testi
+            writeToFirestore(uid, username, name, surname, null)
+        }
+    }
+
+    private fun writeToFirestore(uid: String, username: String, name: String, surname: String, photoUrl: String?) {
+        val userMap = mutableMapOf(
+            "username" to username,
+            "name" to name,
+            "surname" to surname,
+            "updatedAt" to com.google.firebase.Timestamp.now()
+        )
+        photoUrl?.let { userMap["photoUrl"] = it }
+
+        db.collection("users").document(uid)
+            .set(userMap, SetOptions.merge())
+            .addOnSuccessListener {
+                _uiState.update { it.copy(isSaving = false, message = "Profilo aggiornato con successo!") }
+            }
+            .addOnFailureListener { e ->
+                _uiState.update { it.copy(isSaving = false, message = "Errore Cloud: ${e.message}") }
+            }
     }
 }

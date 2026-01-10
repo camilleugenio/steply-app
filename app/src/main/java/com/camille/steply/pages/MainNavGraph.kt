@@ -18,6 +18,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import com.camille.steply.pages.Profile
 
 
 @Composable
