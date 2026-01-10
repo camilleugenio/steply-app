@@ -105,6 +105,15 @@ class HomeViewModel(
         }
     }
 
+    fun getCurrentLatLngOnce(): com.camille.steply.data.location.LatLng {
+        // non puoi fare suspend qui: quindi facciamola suspend sotto
+        throw NotImplementedError()
+    }
+
+    suspend fun fetchCurrentLatLngOnce(): com.camille.steply.data.location.LatLng {
+        return locationRepository.getCurrentLatLng()
+    }
+
 
     // -------------------- LOCATION --------------------
     fun refreshPlace() {

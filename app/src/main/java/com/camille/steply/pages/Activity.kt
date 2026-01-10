@@ -82,9 +82,7 @@ fun ActivityScreen(
         activityViewModel.events.collectLatest { event ->
             when (event) {
                 is ActivityEvent.NavigateToWorkout -> {
-                    navType = event.type
                     navigating = true
-
                     navController.navigate("${Routes.WORKOUT}/${event.type.name}") {
                         launchSingleTop = true
                     }
@@ -93,15 +91,22 @@ fun ActivityScreen(
         }
     }
 
-
     // SE COUNTDOWN ATTIVO: SPARISCE TUTTO E MOSTRA SOLO QUESTO
-    if ((activityState.isCountingDown && activityState.countdownType != null) || navigating) {
-        val t = navType ?: activityState.countdownType ?: WorkoutType.WALK
-
+    if (activityState.isCountingDown && activityState.countdownType != null) {
         CountdownFullScreen(
             number = activityState.secondsLeft,
             label = activityState.phaseText,
-            color = workoutColor(t)
+            color = workoutColor(activityState.countdownType!!)
+        )
+        return
+    }
+
+// ✅ Se sto navigando: schermo neutro (così NON compare più “3”)
+    if (navigating) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFF4F1EC))
         )
         return
     }
@@ -110,8 +115,6 @@ fun ActivityScreen(
         val obs = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 navigating = false
-                navType = null
-                activityViewModel.cancelCountdown()
             }
         }
         lifecycleOwner.lifecycle.addObserver(obs)

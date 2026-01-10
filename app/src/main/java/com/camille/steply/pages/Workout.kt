@@ -52,6 +52,24 @@ fun WorkoutScreen(
     var paused by remember { mutableStateOf(false) }
     var elapsedSec by remember { mutableStateOf(0) }
 
+    var initialLatLng by remember { mutableStateOf<LatLng?>(null) }
+
+    LaunchedEffect(Unit) {
+        // usa la location già disponibile dal tuo HomeViewModel (meteo)
+        runCatching {
+            // ⚠️ devi avere una funzione nel HomeViewModel che espone getCurrentLatLng,
+            // se non ce l'hai ti metto sotto la versione da incollare.
+            homeViewModel.getCurrentLatLngOnce()
+        }.onSuccess { p ->
+            initialLatLng = LatLng(p.lat, p.lon)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        runCatching { homeViewModel.fetchCurrentLatLngOnce() }
+            .onSuccess { p -> initialLatLng = LatLng(p.lat, p.lon) }
+    }
+
     // ✅ timer semplice (poi lo sposteremo in un WorkoutViewModel)
     LaunchedEffect(paused) {
         while (!paused) {
@@ -207,31 +225,47 @@ fun WorkoutScreen(
             color = Color(0xFFE8E8E8),
             shadowElevation = 12.dp
         ) {
-            val last = mapState.points.lastOrNull() ?: LatLng(41.9028, 12.4964) // fallback Roma
+            // 1) se ho punti tracciati uso l’ultimo
+            // 2) altrimenti uso la posizione iniziale one-shot
+            val last = mapState.points.lastOrNull() ?: initialLatLng
 
-            val cameraState = rememberCameraPositionState {
-                position = CameraPosition.fromLatLngZoom(last, 17f)
-            }
+            if (last == null) {
+                // ✅ niente Roma: mostro solo loading
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Getting your location…",
+                        color = Color(0xFF666666),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                val cameraState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(last, 17f)
+                }
 
-            // segue l’utente
-            LaunchedEffect(last) {
-                cameraState.position = CameraPosition.fromLatLngZoom(last, 17f)
-            }
+                LaunchedEffect(last) {
+                    cameraState.position = CameraPosition.fromLatLngZoom(last, 17f)
+                }
 
-            GoogleMap(
-                modifier = Modifier.fillMaxSize(),
-                cameraPositionState = cameraState,
-                properties = MapProperties(isMyLocationEnabled = true),
-                uiSettings = MapUiSettings(
-                    myLocationButtonEnabled = true,
-                    zoomControlsEnabled = false
-                )
-            ) {
-                if (mapState.points.size >= 2) {
-                    Polyline(points = mapState.points)
+                GoogleMap(
+                    modifier = Modifier.fillMaxSize(),
+                    cameraPositionState = cameraState,
+                    properties = MapProperties(isMyLocationEnabled = true),
+                    uiSettings = MapUiSettings(
+                        myLocationButtonEnabled = true,
+                        zoomControlsEnabled = false
+                    )
+                ) {
+                    if (mapState.points.size >= 2) {
+                        Polyline(points = mapState.points)
+                    }
                 }
             }
         }
+
 
 
         Spacer(Modifier.height(14.dp))
