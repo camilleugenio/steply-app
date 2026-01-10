@@ -5,8 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -26,10 +29,17 @@ data class ActivityUiState(
     val isCountingDown: Boolean = false
 )
 
+sealed class ActivityEvent {
+    data class NavigateToWorkout(val type: WorkoutType) : ActivityEvent()
+}
+
 class ActivityViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(ActivityUiState())
     val uiState: StateFlow<ActivityUiState> = _uiState.asStateFlow()
+
+    private val _events = MutableSharedFlow<ActivityEvent>(extraBufferCapacity = 1)
+    val events: SharedFlow<ActivityEvent> = _events.asSharedFlow()
 
     private var countdownJob: Job? = null
 
@@ -62,6 +72,7 @@ class ActivityViewModel : ViewModel() {
                     phaseText = "Ready"
                 )
             }
+            _events.tryEmit(ActivityEvent.NavigateToWorkout(type))
         }
     }
 

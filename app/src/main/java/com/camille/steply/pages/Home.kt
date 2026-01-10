@@ -416,7 +416,6 @@ private fun TopBarLight(
                         tint = TextPrimary
                     )
                 }
-                Spacer(Modifier.width(6.dp))
 
                 IconToggleButton(
                     checked = trackingEnabled,
@@ -430,8 +429,6 @@ private fun TopBarLight(
                         tint = if (trackingEnabled) Accent else Color.Gray
                     )
                 }
-
-                Spacer(Modifier.width(6.dp))
             }
         }
 

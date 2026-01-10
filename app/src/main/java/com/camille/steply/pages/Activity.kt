@@ -56,6 +56,9 @@ import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.WorkoutType
 import com.camille.steply.viewmodel.workoutColor
 import kotlin.math.roundToInt
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.collectLatest
+import com.camille.steply.viewmodel.ActivityEvent
 
 
 @Composable
@@ -65,8 +68,19 @@ fun ActivityScreen(
 ) {
     val activityViewModel: ActivityViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
     val activityState by activityViewModel.uiState.collectAsState()
-
     val uiState by homeViewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        activityViewModel.events.collectLatest { event ->
+            when (event) {
+                is ActivityEvent.NavigateToWorkout -> {
+                    navController.navigate("${Routes.WORKOUT}/${event.type.name}") {
+                        launchSingleTop = true
+                    }
+                }
+            }
+        }
+    }
 
     // SE COUNTDOWN ATTIVO: SPARISCE TUTTO E MOSTRA SOLO QUESTO
     if (activityState.isCountingDown && activityState.countdownType != null) {

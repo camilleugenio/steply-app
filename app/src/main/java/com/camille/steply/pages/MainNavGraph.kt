@@ -1,21 +1,18 @@
 package com.camille.steply.pages
 
 import android.app.Application
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.camille.steply.pages.Routes
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.HomeVmFactory
-
+import com.camille.steply.viewmodel.WorkoutType
 
 @Composable
 fun MainNavGraph() {
@@ -33,11 +30,29 @@ fun MainNavGraph() {
         exitTransition = { fadeOut(animationSpec = tween(40)) },
         popEnterTransition = { fadeIn(animationSpec = tween(40)) },
         popExitTransition = { fadeOut(animationSpec = tween(40)) }
-
     ) {
-        composable(Routes.STEPS) { Home(navController = navController, homeViewModel = homeViewModel ) }
-        composable(Routes.ACTIVITY) { ActivityScreen(navController = navController, homeViewModel = homeViewModel ) }
-        composable(Routes.PROFILE) { Profile(navController = navController) }
-    }
+        composable(Routes.STEPS) {
+            Home(navController = navController, homeViewModel = homeViewModel)
+        }
 
+        composable(Routes.ACTIVITY) {
+            ActivityScreen(navController = navController, homeViewModel = homeViewModel)
+        }
+
+        composable(Routes.PROFILE) {
+            Profile(navController = navController)
+        }
+
+        // ✅ NUOVA WORKOUT SCREEN
+        composable("${Routes.WORKOUT}/{type}") { backStackEntry ->
+            val typeStr = backStackEntry.arguments?.getString("type") ?: WorkoutType.WALK.name
+            val type = runCatching { WorkoutType.valueOf(typeStr) }.getOrElse { WorkoutType.WALK }
+
+            WorkoutScreen(
+                navController = navController,
+                homeViewModel = homeViewModel,
+                type = type
+            )
+        }
+    }
 }

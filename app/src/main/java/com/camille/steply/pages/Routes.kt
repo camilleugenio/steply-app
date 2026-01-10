@@ -5,4 +5,5 @@ object Routes {
     const val STEPS = "steps"
     const val ACTIVITY = "activity"
     const val PROFILE = "profile"
+    const val WORKOUT = "workout"
 }
