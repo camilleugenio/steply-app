@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 
 data class WorkoutMapState(
     val paused: Boolean = false,
+    val startPoint: GLatLng? = null,
     val points: List<GLatLng> = emptyList(),
     val distanceMeters: Double = 0.0
 )
@@ -30,7 +31,12 @@ class WorkoutViewModel(
     private var last: LatLng? = null
 
     fun start() {
-        _state.value = WorkoutMapState(paused = false, points = emptyList(), distanceMeters = 0.0)
+        _state.value = WorkoutMapState(
+            paused = false,
+            startPoint = null,
+            points = emptyList(),
+            distanceMeters = 0.0
+        )
         last = null
         resume()
     }
@@ -53,19 +59,26 @@ class WorkoutViewModel(
     }
 
     private fun addPoint(p: LatLng) {
+        val newPoint = GLatLng(p.lat, p.lon)
+
+        _state.update { st ->
+            // ✅ set start SOLO la prima volta
+            val start = st.startPoint ?: newPoint
+            st.copy(startPoint = start)
+        }
+
         val prev = last
         if (prev != null) {
             val d = distanceMeters(prev, p)
-            // filtro semplice anti-salti (puoi ritoccarlo)
             if (d in 0.5..50.0) {
                 _state.update { it.copy(distanceMeters = it.distanceMeters + d) }
             }
         }
 
         last = p
-        val newPoint = GLatLng(p.lat, p.lon)
         _state.update { it.copy(points = it.points + newPoint) }
     }
+
 
     private fun distanceMeters(a: LatLng, b: LatLng): Double {
         val out = FloatArray(1)

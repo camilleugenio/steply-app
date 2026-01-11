@@ -18,6 +18,11 @@ import androidx.navigation.NavController
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.WorkoutViewModel
 import com.camille.steply.viewmodel.WorkoutType
+import com.google.android.gms.maps.model.Dash
+import androidx.compose.ui.geometry.Offset
+import com.camille.steply.R
+import com.google.android.gms.maps.model.Gap
+import com.google.android.gms.maps.model.PatternItem
 import kotlinx.coroutines.delay
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
@@ -33,6 +38,28 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.toSize
+import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.Paint
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import com.google.android.gms.maps.model.BitmapDescriptor
+import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import kotlin.math.roundToInt
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.nativeCanvas
+import android.graphics.Typeface
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.unit.TextUnit
+
 
 
 @Composable
@@ -53,6 +80,8 @@ fun WorkoutScreen(
     var elapsedSec by remember { mutableStateOf(0) }
 
     var initialLatLng by remember { mutableStateOf<LatLng?>(null) }
+
+    var startLatLng by remember { mutableStateOf<LatLng?>(null) }
 
     LaunchedEffect(Unit) {
         // usa la location già disponibile dal tuo HomeViewModel (meteo)
@@ -259,8 +288,48 @@ fun WorkoutScreen(
                         zoomControlsEnabled = false
                     )
                 ) {
+                    val trackColor = when (type) {
+                        WorkoutType.WALK -> Color(0xFF2F80FF)    // blu
+                        WorkoutType.RUN -> Color(0xFF9B51E0)     // viola
+                        WorkoutType.CYCLING -> Color(0xFF27AE60) // verde
+                    }
+                    val dashedPattern: List<PatternItem> = listOf(
+                        Dash(20f), // lunghezza trattino
+                        Gap(14f)   // spazio tra i trattini
+                    )
+
+
                     if (mapState.points.size >= 2) {
-                        Polyline(points = mapState.points)
+                        Polyline(
+                            points = mapState.points,
+                            color = if (paused) Color.Gray else trackColor,
+                            width = 10f,
+                            pattern = if (paused) dashedPattern else null,
+                            geodesic = true
+                        )
+                    }
+
+                    val activityIcon = when (type) {
+                        WorkoutType.WALK -> Icons.Default.DirectionsWalk
+                        WorkoutType.RUN -> Icons.Default.DirectionsRun
+                        WorkoutType.CYCLING -> Icons.Default.DirectionsBike
+                    }
+
+                    // ✅ START marker fisso con label sempre visibile
+                    val start = mapState.startPoint
+                    if (start != null) {
+                        val startIcon = rememberStartMarkerIconWithLabel(
+                            bgColor = trackColor,
+                            icon = activityIcon,
+                            label = "Start"
+                        )
+
+                        Marker(
+                            state = MarkerState(position = start),
+                            icon = startIcon,
+                            // ancora “spostata” un po’ verso l’alto perché sotto c’è la label
+                            anchor = Offset(0.5f, 0.35f)
+                        )
                     }
                 }
             }
@@ -307,6 +376,8 @@ fun WorkoutScreen(
     }
 }
 
+// -------------------- STATISTICHE SOTTO--------------------
+
 @Composable
 private fun StatMini(
     icon: ImageVector,
@@ -349,3 +420,107 @@ private fun formatDuration(totalSec: Int): String {
     val s = totalSec % 60
     return "%02d:%02d".format(m, s)
 }
+
+// -------------------- MARKER --------------------
+
+@Composable
+private fun rememberStartMarkerIconWithLabel(
+    bgColor: Color,
+    icon: ImageVector,
+    label: String = "Start",
+    circleSize: Dp = 34.dp,
+    iconSize: Dp = 22.dp,
+    labelTextSize: TextUnit = 14.sp,
+    labelHPadding: Dp = 8.dp,
+    labelVPadding: Dp = 4.dp,
+    gapBetween: Dp = 4.dp,
+    cornerRadius: Dp = 14.dp
+): BitmapDescriptor {
+    val density = LocalDensity.current
+    val painter = rememberVectorPainter(image = icon)
+
+    return remember(bgColor, icon, label, density) {
+        val circlePx = with(density) { circleSize.toPx() }
+        val iconPx = with(density) { iconSize.toPx() }
+        val textPx = with(density) { labelTextSize.toPx() }
+        val padHPx = with(density) { labelHPadding.toPx() }
+        val padVPx = with(density) { labelVPadding.toPx() }
+        val gapPx = with(density) { gapBetween.toPx() }
+        val cornerPx = with(density) { cornerRadius.toPx() }
+
+        // Android Paint per testo
+        val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = android.graphics.Color.BLACK
+            textSize = textPx
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val fm = textPaint.fontMetrics
+        val textWidth = textPaint.measureText(label)
+        val textHeight = (fm.descent - fm.ascent)
+
+        val labelW = textWidth + 2f * padHPx
+        val labelH = textHeight + 2f * padVPx
+
+        val bmpW = maxOf(circlePx, labelW).roundToInt()
+        val bmpH = (circlePx + gapPx + labelH).roundToInt()
+
+        val imageBitmap = ImageBitmap(bmpW, bmpH)
+        val canvas = androidx.compose.ui.graphics.Canvas(imageBitmap)
+
+        val centerX = bmpW / 2f
+        val circleCenterY = circlePx / 2f
+
+        // cerchio colorato
+        val circlePaint = androidx.compose.ui.graphics.Paint().apply { color = bgColor }
+        canvas.drawCircle(Offset(centerX, circleCenterY), circlePx / 2f, circlePaint)
+
+        // icona bianca al centro
+        val iconLeft = centerX - iconPx / 2f
+        val iconTop = circleCenterY - iconPx / 2f
+
+        val drawScope = CanvasDrawScope()
+        drawScope.draw(
+            density = density,
+            layoutDirection = LayoutDirection.Ltr,
+            canvas = canvas,
+            size = IntSize(bmpW, bmpH).toSize()
+        ) {
+            translate(iconLeft, iconTop) {
+                with(painter) {
+                    draw(
+                        size = androidx.compose.ui.geometry.Size(iconPx, iconPx),
+                        alpha = 1f,
+                        colorFilter = ColorFilter.tint(Color.White)
+                    )
+                }
+            }
+
+            // label sotto (sempre visibile)
+            val labelLeft = centerX - labelW / 2f
+            val labelTop = circlePx + gapPx
+            val labelRight = labelLeft + labelW
+            val labelBottom = labelTop + labelH
+
+            drawIntoCanvas { c ->
+                val native = c.nativeCanvas
+
+                val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.WHITE
+                }
+
+                native.drawRoundRect(
+                    labelLeft, labelTop, labelRight, labelBottom,
+                    cornerPx, cornerPx,
+                    bgPaint
+                )
+
+                val textX = centerX - (textWidth / 2f)
+                val baseline = labelTop + padVPx - fm.ascent
+                native.drawText(label, textX, baseline, textPaint)
+            }
+        }
+
+        BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
+    }
+}
+
