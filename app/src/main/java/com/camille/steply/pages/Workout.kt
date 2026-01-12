@@ -1,67 +1,56 @@
 package com.camille.steply.pages
 
+import android.app.Application
+import android.graphics.Typeface
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.navigation.NavController
-import com.camille.steply.viewmodel.HomeViewModel
-import com.camille.steply.viewmodel.WorkoutViewModel
-import com.camille.steply.viewmodel.WorkoutType
-import com.google.android.gms.maps.model.Dash
 import androidx.compose.ui.geometry.Offset
-import com.camille.steply.R
-import com.google.android.gms.maps.model.Gap
-import com.google.android.gms.maps.model.PatternItem
-import kotlinx.coroutines.delay
-import androidx.compose.material.icons.Icons
-import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.filled.*
-import androidx.compose.ui.graphics.vector.ImageVector
-import android.app.Application
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.google.android.gms.maps.model.CameraPosition
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.toSize
-import androidx.compose.ui.graphics.Canvas
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.toSize
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
+import com.camille.steply.viewmodel.HomeViewModel
+import com.camille.steply.viewmodel.WorkoutType
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.Dash
+import com.google.android.gms.maps.model.Gap
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.PatternItem
+import com.google.maps.android.compose.*
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.nativeCanvas
-import android.graphics.Typeface
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.unit.TextUnit
-
-
 
 @Composable
 fun WorkoutScreen(
@@ -79,16 +68,14 @@ fun WorkoutScreen(
 
     var paused by remember { mutableStateOf(false) }
     var elapsedSec by remember { mutableStateOf(0) }
-
     var initialLatLng by remember { mutableStateOf<LatLng?>(null) }
-
 
     LaunchedEffect(Unit) {
         runCatching { homeViewModel.fetchCurrentLatLngOnce() }
             .onSuccess { p -> initialLatLng = LatLng(p.lat, p.lon) }
     }
 
-    // ✅ timer semplice (poi lo sposteremo in un WorkoutViewModel)
+    // ✅ timer semplice
     LaunchedEffect(paused) {
         if (!paused) {
             while (true) {
@@ -107,7 +94,6 @@ fun WorkoutScreen(
         if (paused) workoutVm.pause() else workoutVm.resume()
     }
 
-
     val title = when (type) {
         WorkoutType.RUN -> "RUN"
         WorkoutType.WALK -> "WALK"
@@ -116,9 +102,17 @@ fun WorkoutScreen(
 
     val durationText = remember(elapsedSec) { formatDuration(elapsedSec) }
 
-    // Per ora placeholders: poi li colleghiamo a GPS/step/calorie reali
+    // placeholders (poi reali)
     val kmText = String.format(java.util.Locale.US, "%.2f", mapState.distanceMeters / 1000.0)
     val kcalText = "0"
+
+    // ✅ "percentuale" senza BoxWithConstraints: screenHeightDp
+    val config = LocalConfiguration.current
+    val screenH = config.screenHeightDp.dp
+
+    // 🔧 regola qui quanto vuoi alta la mappa
+    val mapMinH = 260.dp
+    val mapMaxH = minOf((screenH * 0.60f), 580.dp).coerceAtLeast(320.dp)
 
     Column(
         modifier = Modifier
@@ -131,7 +125,8 @@ fun WorkoutScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 3.dp, end = 3.dp, top = 60.dp, bottom = 30.dp)
+                .statusBarsPadding()
+                .padding(start = 3.dp, end = 3.dp, top = 20.dp, bottom = 22.dp)
         ) {
 
             // ---- TITOLO ----
@@ -176,14 +171,13 @@ fun WorkoutScreen(
                     Row(
                         modifier = Modifier
                             .clickable {
-                                // per ora: torna indietro
                                 navController.popBackStack()
                             }
                             .padding(horizontal = 10.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Stop, // ⛔ icona stop
+                            imageVector = Icons.Default.Stop,
                             contentDescription = "End",
                             tint = Color.Black,
                             modifier = Modifier.size(25.dp)
@@ -201,11 +195,11 @@ fun WorkoutScreen(
                 }
             }
 
-            // ✅ PILL DESTRA: PAUSE / RESUME (icona cambia)
+            // ✅ PILL DESTRA: PAUSE / RESUME
             Surface(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
-                    .padding(end = 6.dp), // ✅ era start, deve essere end
+                    .padding(end = 6.dp),
                 shape = RoundedCornerShape(999.dp),
                 color = Color.White,
                 shadowElevation = 8.dp
@@ -235,25 +229,22 @@ fun WorkoutScreen(
             }
         }
 
-        Spacer(Modifier.height(5.dp))
+        // ✅ più respiro tra topbar e mappa
+        Spacer(Modifier.height(12.dp))
 
         // -------- MAP CARD (Google Map) --------
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(600.dp),
+                .heightIn(min = mapMinH, max = mapMaxH),
             shape = RoundedCornerShape(26.dp),
             color = Color(0xFFE8E8E8),
             shadowElevation = 12.dp
         ) {
-            // 1) se ho punti tracciati uso l’ultimo
-            // 2) altrimenti uso la posizione iniziale one-shot
             val lastFromSegments = mapState.segments.lastOrNull()?.points?.lastOrNull()
             val last = lastFromSegments ?: initialLatLng
 
-
             if (last == null) {
-                // ✅ niente Roma: mostro solo loading
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
@@ -269,7 +260,12 @@ fun WorkoutScreen(
                     position = CameraPosition.fromLatLngZoom(last, 17f)
                 }
 
-                LaunchedEffect(last) { cameraState.animate( update = CameraUpdateFactory.newLatLngZoom(last, 17f), durationMs = 600 ) }
+                LaunchedEffect(last) {
+                    cameraState.animate(
+                        update = CameraUpdateFactory.newLatLngZoom(last, 17f),
+                        durationMs = 600
+                    )
+                }
 
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),
@@ -318,15 +314,12 @@ fun WorkoutScreen(
                         Marker(
                             state = MarkerState(position = start),
                             icon = startIcon,
-                            // ancora “spostata” un po’ verso l’alto perché sotto c’è la label
                             anchor = Offset(0.5f, 0.35f)
                         )
                     }
                 }
             }
         }
-
-
 
         Spacer(Modifier.height(14.dp))
 
@@ -405,7 +398,6 @@ private fun StatMini(
     }
 }
 
-
 private fun formatDuration(totalSec: Int): String {
     val m = totalSec / 60
     val s = totalSec % 60
@@ -439,7 +431,6 @@ private fun rememberStartMarkerIconWithLabel(
         val gapPx = with(density) { gapBetween.toPx() }
         val cornerPx = with(density) { cornerRadius.toPx() }
 
-        // Android Paint per testo
         val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
             color = android.graphics.Color.BLACK
             textSize = textPx
@@ -461,11 +452,9 @@ private fun rememberStartMarkerIconWithLabel(
         val centerX = bmpW / 2f
         val circleCenterY = circlePx / 2f
 
-        // cerchio colorato
         val circlePaint = androidx.compose.ui.graphics.Paint().apply { color = bgColor }
         canvas.drawCircle(Offset(centerX, circleCenterY), circlePx / 2f, circlePaint)
 
-        // icona bianca al centro
         val iconLeft = centerX - iconPx / 2f
         val iconTop = circleCenterY - iconPx / 2f
 
@@ -486,7 +475,6 @@ private fun rememberStartMarkerIconWithLabel(
                 }
             }
 
-            // label sotto (sempre visibile)
             val labelLeft = centerX - labelW / 2f
             val labelTop = circlePx + gapPx
             val labelRight = labelLeft + labelW
@@ -514,4 +502,3 @@ private fun rememberStartMarkerIconWithLabel(
         BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
     }
 }
-
