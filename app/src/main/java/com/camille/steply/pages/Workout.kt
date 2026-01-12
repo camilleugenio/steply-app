@@ -81,18 +81,6 @@ fun WorkoutScreen(
 
     var initialLatLng by remember { mutableStateOf<LatLng?>(null) }
 
-    var startLatLng by remember { mutableStateOf<LatLng?>(null) }
-
-    LaunchedEffect(Unit) {
-        // usa la location già disponibile dal tuo HomeViewModel (meteo)
-        runCatching {
-            // ⚠️ devi avere una funzione nel HomeViewModel che espone getCurrentLatLng,
-            // se non ce l'hai ti metto sotto la versione da incollare.
-            homeViewModel.getCurrentLatLngOnce()
-        }.onSuccess { p ->
-            initialLatLng = LatLng(p.lat, p.lon)
-        }
-    }
 
     LaunchedEffect(Unit) {
         runCatching { homeViewModel.fetchCurrentLatLngOnce() }
@@ -101,14 +89,17 @@ fun WorkoutScreen(
 
     // ✅ timer semplice (poi lo sposteremo in un WorkoutViewModel)
     LaunchedEffect(paused) {
-        while (!paused) {
-            delay(1000)
-            elapsedSec += 1
+        if (!paused) {
+            while (true) {
+                delay(1000)
+                elapsedSec += 1
+            }
         }
     }
 
     LaunchedEffect(Unit) {
-        workoutVm.start() // parte subito quando entri nella schermata
+        workoutVm.ensureLocationUpdates()
+        workoutVm.start()
     }
 
     LaunchedEffect(paused) {
@@ -256,7 +247,9 @@ fun WorkoutScreen(
         ) {
             // 1) se ho punti tracciati uso l’ultimo
             // 2) altrimenti uso la posizione iniziale one-shot
-            val last = mapState.points.lastOrNull() ?: initialLatLng
+            val lastFromSegments = mapState.segments.lastOrNull()?.points?.lastOrNull()
+            val last = lastFromSegments ?: initialLatLng
+
 
             if (last == null) {
                 // ✅ niente Roma: mostro solo loading
@@ -293,20 +286,19 @@ fun WorkoutScreen(
                         WorkoutType.RUN -> Color(0xFF9B51E0)     // viola
                         WorkoutType.CYCLING -> Color(0xFF27AE60) // verde
                     }
-                    val dashedPattern: List<PatternItem> = listOf(
-                        Dash(20f), // lunghezza trattino
-                        Gap(14f)   // spazio tra i trattini
-                    )
 
+                    val dashedPattern: List<PatternItem> = listOf(Dash(20f), Gap(14f))
 
-                    if (mapState.points.size >= 2) {
-                        Polyline(
-                            points = mapState.points,
-                            color = if (paused) Color.Gray else trackColor,
-                            width = 10f,
-                            pattern = if (paused) dashedPattern else null,
-                            geodesic = true
-                        )
+                    mapState.segments.forEach { seg ->
+                        if (seg.points.size >= 2) {
+                            Polyline(
+                                points = seg.points,
+                                color = trackColor,
+                                width = 10f,
+                                pattern = if (seg.dashed) dashedPattern else null,
+                                geodesic = true
+                            )
+                        }
                     }
 
                     val activityIcon = when (type) {
