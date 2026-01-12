@@ -82,12 +82,39 @@ class LocationRepository(
 
 
 
+//    fun locationUpdates(
+//        intervalMs: Long = 1000L,
+//        minDistanceMeters: Float = 2f
+//    ): Flow<LatLng> = callbackFlow {
+//
+//        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
+//            .setMinUpdateDistanceMeters(minDistanceMeters)
+//            .build()
+//
+//        val callback = object : LocationCallback() {
+//            override fun onLocationResult(result: LocationResult) {
+//                val loc = result.lastLocation ?: return
+//                trySend(LatLng(loc.latitude, loc.longitude))
+//            }
+//        }
+//
+//        try {
+//            fused.requestLocationUpdates(request, callback, context.mainLooper)
+//        } catch (se: SecurityException) {
+//            close(se)
+//        }
+//
+//        awaitClose { fused.removeLocationUpdates(callback) }
+//    }
+
     fun locationUpdates(
-        intervalMs: Long = 1000L,
-        minDistanceMeters: Float = 2f
+        intervalMs: Long = 500L,          // ✅ più frequente
+        fastestMs: Long = 250L,           // ✅ permette update più rapidi se disponibili
+        minDistanceMeters: Float = 0f     // ✅ emulatore / route: non bloccare
     ): Flow<LatLng> = callbackFlow {
 
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
+            .setMinUpdateIntervalMillis(fastestMs)      // ✅ IMPORTANTISSIMO per fluidità
             .setMinUpdateDistanceMeters(minDistanceMeters)
             .build()
 

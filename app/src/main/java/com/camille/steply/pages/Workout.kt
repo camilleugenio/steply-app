@@ -36,6 +36,7 @@ import android.app.Application
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import androidx.compose.ui.graphics.ColorFilter
@@ -268,9 +269,7 @@ fun WorkoutScreen(
                     position = CameraPosition.fromLatLngZoom(last, 17f)
                 }
 
-                LaunchedEffect(last) {
-                    cameraState.position = CameraPosition.fromLatLngZoom(last, 17f)
-                }
+                LaunchedEffect(last) { cameraState.animate( update = CameraUpdateFactory.newLatLngZoom(last, 17f), durationMs = 600 ) }
 
                 GoogleMap(
                     modifier = Modifier.fillMaxSize(),

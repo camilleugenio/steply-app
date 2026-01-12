@@ -76,7 +76,11 @@ class WorkoutViewModel(
         if (locationJob != null) return
 
         locationJob = viewModelScope.launch {
-            locationRepository.locationUpdates().collect { p ->
+            locationRepository.locationUpdates(
+                intervalMs = 500L,
+                fastestMs = 250L,
+                minDistanceMeters = 0f
+            ).collect { p ->
                 addPoint(p)
             }
         }
