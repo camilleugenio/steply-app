@@ -5,14 +5,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.camille.steply.data.location.LatLng
 import com.camille.steply.data.location.LocationRepository
+import com.camille.steply.network.KcalApi
+import com.camille.steply.network.StartWorkoutRequest
+import com.camille.steply.network.UpdateWorkoutRequest
+import com.camille.steply.service.WorkoutLocationService
 import com.google.android.gms.maps.model.LatLng as GLatLng
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.camille.steply.service.WorkoutLocationService
 
 data class WorkoutMapState(
     val paused: Boolean = false,
@@ -27,7 +31,8 @@ data class TrackSegment(
 )
 
 class WorkoutViewModel(
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    private val kcalApi: KcalApi
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutMapState())
@@ -35,6 +40,98 @@ class WorkoutViewModel(
 
     private var locationJob: Job? = null
     private var last: LatLng? = null
+
+    // -------- KCAL (SERVER) --------
+    private val _kcal = MutableStateFlow(0.0)
+    val kcal: StateFlow<Double> = _kcal.asStateFlow()
+
+    private var workoutId: String? = null
+    private var kcalJob: Job? = null
+
+    fun startRemoteSessionAndLoop(
+        activity: String,
+        weightKg: Double,
+        ageYears: Int,
+        sex: String,
+        elapsedSecProvider: () -> Int,
+        intervalMs: Long = 10_000L
+    ) {
+        // already running
+        if (workoutId != null && kcalJob != null) return
+
+        viewModelScope.launch {
+            // 1) ensure we have a workoutId
+            if (workoutId == null) {
+                runCatching {
+                    kcalApi.startWorkout(
+                        StartWorkoutRequest(
+                            activity = activity,
+                            weight_kg = weightKg,
+                            age_years = ageYears,
+                            sex = sex
+                        )
+                    )
+                }.onSuccess { resp ->
+                    workoutId = resp.workout_id
+                    android.util.Log.d("KCAL", "Started workoutId=${resp.workout_id}")
+                }.onFailure { e ->
+                    android.util.Log.e("KCAL", "startWorkout FAILED", e)
+                    return@launch // no id => can't poll
+                }
+            }
+
+            // 2) start loop once
+            if (kcalJob == null) {
+                kcalJob = launch {
+                    while (true) {
+                        val id = workoutId ?: break
+                        val st = state.value
+
+                        if (!st.paused) {
+                            val elapsed = elapsedSecProvider().toDouble()
+                            val distanceKm = st.distanceMeters / 1000.0
+
+                            runCatching {
+                                kcalApi.updateWorkout(
+                                    workoutId = id,
+                                    body = UpdateWorkoutRequest(
+                                        elapsed_sec = elapsed,
+                                        distance_km = distanceKm
+                                    )
+                                )
+                            }.onSuccess { resp ->
+                                _kcal.value = resp.current_kcal
+                                android.util.Log.d("KCAL", "kcal=${resp.current_kcal}")
+                            }.onFailure { e ->
+                                android.util.Log.e("KCAL", "updateWorkout FAILED", e)
+                            }
+                        }
+
+                        delay(intervalMs)
+                    }
+                }
+            }
+        }
+    }
+
+    fun stopKcalLoop() {
+        kcalJob?.cancel()
+        kcalJob = null
+    }
+
+    fun pingServer() {
+        viewModelScope.launch {
+            runCatching { kcalApi.health() }
+                .onSuccess { resp ->
+                    android.util.Log.d("KCAL", "HEALTH OK: $resp")
+                }
+                .onFailure { e ->
+                    android.util.Log.e("KCAL", "HEALTH FAILED", e)
+                }
+        }
+    }
+
+    // ------------------------------
 
     fun start() {
         _state.value = WorkoutMapState(
@@ -46,6 +143,7 @@ class WorkoutViewModel(
         last = null
         resume() // vedi sotto: resume non deve più cancellare/ricreare job
     }
+
 
     fun pause() {
         _state.update { st ->

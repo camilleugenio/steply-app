@@ -1,7 +1,11 @@
+
 package com.camille.steply.pages
 
 import android.app.Application
+import android.content.Intent
 import android.graphics.Typeface
+import android.location.Location
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,8 +42,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.core.content.ContextCompat
+import com.camille.steply.service.WorkoutLocationService
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.WorkoutType
+import com.camille.steply.viewmodel.WorkoutViewModel
+import com.camille.steply.viewmodel.WorkoutVmFactory
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -51,9 +59,6 @@ import com.google.android.gms.maps.model.PatternItem
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
-import android.content.Intent
-import androidx.core.content.ContextCompat
-import com.camille.steply.service.WorkoutLocationService
 
 @Composable
 fun WorkoutScreen(
@@ -64,8 +69,8 @@ fun WorkoutScreen(
     val homeState by homeViewModel.uiState.collectAsState()
 
     val context = LocalContext.current
-    val workoutVm: com.camille.steply.viewmodel.WorkoutViewModel = viewModel(
-        factory = com.camille.steply.viewmodel.WorkoutVmFactory(context.applicationContext as Application)
+    val workoutVm: WorkoutViewModel = viewModel(
+        factory = WorkoutVmFactory(context.applicationContext as Application)
     )
     val mapState by workoutVm.state.collectAsState()
 
@@ -73,12 +78,15 @@ fun WorkoutScreen(
     var elapsedSec by remember { mutableStateOf(0) }
     var initialLatLng by remember { mutableStateOf<LatLng?>(null) }
 
+    // ✅ collect kcal from server loop (new)
+    val kcal by workoutVm.kcal.collectAsState()
+
     LaunchedEffect(Unit) {
         runCatching { homeViewModel.fetchCurrentLatLngOnce() }
             .onSuccess { p -> initialLatLng = LatLng(p.lat, p.lon) }
     }
 
-    // ✅ timer semplice
+    // ✅ timer semplice (as you had)
     LaunchedEffect(paused) {
         if (!paused) {
             while (true) {
@@ -89,6 +97,7 @@ fun WorkoutScreen(
     }
 
     LaunchedEffect(Unit) {
+        Log.d("KCAL_UI", "WorkoutScreen LaunchedEffect(Unit) fired")
         // avvia foreground service
         val i = Intent(context, WorkoutLocationService::class.java).apply {
             action = WorkoutLocationService.ACTION_START
@@ -98,8 +107,29 @@ fun WorkoutScreen(
         // VM ascolta i punti dal service
         workoutVm.ensureLocationUpdates()
         workoutVm.start()
-    }
 
+        // ✅ start server session + periodic kcal updates (new)
+        val activity = when (type) {
+            WorkoutType.RUN -> "run"
+            WorkoutType.WALK -> "walk"
+            WorkoutType.CYCLING -> "cycle"
+        }
+
+        // TODO: replace with real user profile data (weight/age/sex)
+        val weightKg = 70.0
+        val ageYears = 27
+        val sex = "male"
+
+        Log.d("KCAL_UI", "Calling startRemoteSessionAndLoop")
+        workoutVm.startRemoteSessionAndLoop(
+            activity = activity,
+            weightKg = weightKg,
+            ageYears = ageYears,
+            sex = sex,
+            elapsedSecProvider = { elapsedSec },
+            intervalMs = 10_000L
+        )
+    }
 
     LaunchedEffect(paused) {
         if (paused) workoutVm.pause() else workoutVm.resume()
@@ -113,15 +143,12 @@ fun WorkoutScreen(
 
     val durationText = remember(elapsedSec) { formatDuration(elapsedSec) }
 
-    // placeholders (poi reali)
     val kmText = String.format(java.util.Locale.US, "%.2f", mapState.distanceMeters / 1000.0)
-    val kcalText = "0"
+    val kcalText = kcal.roundToInt().toString()
 
-    // ✅ "percentuale" senza BoxWithConstraints: screenHeightDp
     val config = LocalConfiguration.current
     val screenH = config.screenHeightDp.dp
 
-    // 🔧 regola qui quanto vuoi alta la mappa
     val mapMinH = 260.dp
     val mapMaxH = minOf((screenH * 0.60f), 580.dp).coerceAtLeast(320.dp)
 
@@ -187,6 +214,9 @@ fun WorkoutScreen(
                                 }
                                 context.startService(stopIntent)
 
+                                // ✅ stop server polling loop (new)
+                                workoutVm.stopKcalLoop()
+
                                 navController.popBackStack()
                             }
                             .padding(horizontal = 10.dp, vertical = 10.dp),
@@ -245,7 +275,6 @@ fun WorkoutScreen(
             }
         }
 
-        // ✅ più respiro tra topbar e mappa
         Spacer(Modifier.height(12.dp))
 
         // -------- MAP CARD (Google Map) --------
@@ -318,7 +347,6 @@ fun WorkoutScreen(
                         WorkoutType.CYCLING -> Icons.Default.DirectionsBike
                     }
 
-                    // ✅ START marker fisso con label sempre visibile
                     val start = mapState.startPoint
                     if (start != null) {
                         val startIcon = rememberStartMarkerIconWithLabel(

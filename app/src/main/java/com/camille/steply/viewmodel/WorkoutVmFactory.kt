@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.camille.steply.data.location.LocationRepository
 import com.google.android.gms.location.LocationServices
+import com.camille.steply.network.KcalRetrofit
 
 class WorkoutVmFactory(
     private val app: Application
@@ -17,7 +18,9 @@ class WorkoutVmFactory(
             val repo = LocationRepository(app.applicationContext, fused)
 
             @Suppress("UNCHECKED_CAST")
-            return WorkoutViewModel(repo) as T
+            return WorkoutViewModel(
+                repo,
+                kcalApi = KcalRetrofit.api) as T
         }
 
         throw IllegalArgumentException("Unknown ViewModel class: $modelClass")
