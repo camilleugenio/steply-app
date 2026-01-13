@@ -159,44 +159,43 @@ fun ActivityScreen(
         }
     ) { padding ->
 
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
         ) {
+            Column(modifier = Modifier.fillMaxSize()) {
 
-            ActivitiesTopBar(
-                onWorkoutSelected = { type ->
-                    activityViewModel.startCountdown(type)
+                ActivitiesTopBar(
+                    onWorkoutSelected = { type ->
+                        activityViewModel.startCountdown(type)
+                    }
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    ActivityWeatherHeader(
+                        temp = uiState.meteoTempC,
+                        emoji = uiState.meteoDesc,
+                        place = uiState.currentPlacename,
+                        loading = uiState.meteoLoading
+                    )
                 }
+            }
+
+            Text(
+                modifier = Modifier.align(Alignment.Center),
+                text = "Click + to start your first workout",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF8E8E93)
             )
-
-            Spacer(Modifier.height(10.dp))
-
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                ActivityWeatherHeader(
-                    temp = uiState.meteoTempC,
-                    emoji = uiState.meteoDesc,
-                    place = uiState.currentPlacename,
-                    loading = uiState.meteoLoading
-                )
-            }
-
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Click + to start your first workout",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF8E8E93)
-                )
-            }
         }
+
     }
 }
 

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import com.camille.steply.service.WorkoutLocationService
 
 data class WorkoutMapState(
     val paused: Boolean = false,
@@ -76,11 +77,7 @@ class WorkoutViewModel(
         if (locationJob != null) return
 
         locationJob = viewModelScope.launch {
-            locationRepository.locationUpdates(
-                intervalMs = 500L,
-                fastestMs = 250L,
-                minDistanceMeters = 0f
-            ).collect { p ->
+            WorkoutLocationService.locations.collect { p ->
                 addPoint(p)
             }
         }

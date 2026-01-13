@@ -51,6 +51,9 @@ import com.google.android.gms.maps.model.PatternItem
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import android.content.Intent
+import androidx.core.content.ContextCompat
+import com.camille.steply.service.WorkoutLocationService
 
 @Composable
 fun WorkoutScreen(
@@ -86,9 +89,17 @@ fun WorkoutScreen(
     }
 
     LaunchedEffect(Unit) {
+        // avvia foreground service
+        val i = Intent(context, WorkoutLocationService::class.java).apply {
+            action = WorkoutLocationService.ACTION_START
+        }
+        ContextCompat.startForegroundService(context, i)
+
+        // VM ascolta i punti dal service
         workoutVm.ensureLocationUpdates()
         workoutVm.start()
     }
+
 
     LaunchedEffect(paused) {
         if (paused) workoutVm.pause() else workoutVm.resume()
@@ -171,6 +182,11 @@ fun WorkoutScreen(
                     Row(
                         modifier = Modifier
                             .clickable {
+                                val stopIntent = Intent(context, WorkoutLocationService::class.java).apply {
+                                    action = WorkoutLocationService.ACTION_STOP
+                                }
+                                context.startService(stopIntent)
+
                                 navController.popBackStack()
                             }
                             .padding(horizontal = 10.dp, vertical = 10.dp),
