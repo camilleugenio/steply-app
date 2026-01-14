@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -53,8 +54,10 @@ import androidx.compose.ui.window.PopupProperties
 import androidx.navigation.NavController
 import com.camille.steply.viewmodel.ActivityViewModel
 import com.camille.steply.viewmodel.HomeViewModel
+import com.camille.steply.viewmodel.WorkoutHistoryViewModel
 import com.camille.steply.viewmodel.WorkoutType
 import com.camille.steply.viewmodel.workoutColor
+import com.camille.steply.pages.WorkoutReportSnapshot
 import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -63,6 +66,10 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.layout.PaddingValues
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 
 @Composable
@@ -77,6 +84,9 @@ fun ActivityScreen(
     var navigating by remember { mutableStateOf(false) }
     var navType by remember { mutableStateOf<WorkoutType?>(null) }
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    val historyVm: WorkoutHistoryViewModel = viewModel()
+    val historyState by historyVm.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
         activityViewModel.events.collectLatest { event ->
@@ -174,28 +184,54 @@ fun ActivityScreen(
 
                 Spacer(Modifier.height(10.dp))
 
-                Box(
-                    modifier = Modifier.fillMaxWidth(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    ActivityWeatherHeader(
-                        temp = uiState.meteoTempC,
-                        emoji = uiState.meteoDesc,
-                        place = uiState.currentPlacename,
-                        loading = uiState.meteoLoading
-                    )
+                ActivityWeatherHeader(
+                    temp = uiState.meteoTempC,
+                    emoji = uiState.meteoDesc,
+                    place = uiState.currentPlacename,
+                    loading = uiState.meteoLoading
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                // history / testo
+                when {
+                    historyState.isLoading -> {
+                        WorkoutHistorySkeletonList()
+                    }
+
+                    historyState.items.isEmpty() -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Click + to start your first workout",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8E8E93)
+                            )
+                        }
+                    }
+
+                    else -> {
+                        ActivityHistoryList(
+                            items = historyState.items,
+                            onItemClick = { snap ->
+                                navController.currentBackStackEntry
+                                    ?.savedStateHandle
+                                    ?.set("workout_report_snapshot", snap)
+
+                                navController.navigate(Routes.WORKOUT_REPORT) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
                 }
             }
-
-            Text(
-                modifier = Modifier.align(Alignment.Center),
-                text = "Click + to start your first workout",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF8E8E93)
-            )
         }
-
     }
 }
 
@@ -383,37 +419,67 @@ private fun ActivityWeatherHeader(
     place: String,
     loading: Boolean
 ) {
-    if (loading) return
+    val reservedHeight = 115.dp
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .height(reservedHeight)
             .padding(horizontal = 20.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = emoji,
-            fontSize = 70.sp
-        )
-
-        Spacer(Modifier.width(16.dp))
-
-        Column(
-            horizontalAlignment = Alignment.Start
-        ){
-            Text(
-                text = place,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                color = Color.DarkGray
-            )
-            Text(
-                text = "$temp°C",
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
+        if (loading) {
+            // placeholder
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE6E6E6))
+                )
+                Spacer(Modifier.width(16.dp))
+                Column {
+                    Box(
+                        modifier = Modifier
+                            .height(18.dp)
+                            .width(150.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFE6E6E6))
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .height(30.dp)
+                            .width(90.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFE6E6E6))
+                    )
+                }
+            }
+        } else {
+            // ✅ UI reale meteo (uguale alla tua)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = emoji, fontSize = 70.sp)
+                Spacer(Modifier.width(16.dp))
+                Column(horizontalAlignment = Alignment.Start) {
+                    Text(
+                        text = place,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.DarkGray
+                    )
+                    Text(
+                        text = "$temp°C",
+                        fontSize = 34.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                }
+            }
         }
     }
 }
@@ -449,5 +515,193 @@ private fun CountdownFullScreen(
         }
     }
 }
+
+// -------------------- HISTORY--------------------
+
+@Composable
+private fun ActivityHistoryList(
+    items: List<WorkoutReportSnapshot>,
+    onItemClick: (WorkoutReportSnapshot) -> Unit
+) {
+    val grouped = remember(items) {
+        items.groupBy { yearMonthKey(it.startTimeMs) } // es "gennaio 2026"
+    }
+
+    val order = remember(items) { grouped.keys.toList() } // già in ordine perché items è sorted desc
+
+    androidx.compose.foundation.lazy.LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 20.dp),
+        contentPadding = PaddingValues(bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        order.forEach { monthKey ->
+            item {
+                Text(
+                    text = monthKey,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                )
+            }
+
+            val monthItems = grouped[monthKey].orEmpty()
+            items(monthItems.size) { idx ->
+                val snap = monthItems[idx]
+                WorkoutHistoryRow(snap = snap, onClick = { onItemClick(snap) })
+            }
+        }
+    }
+}
+
+private fun yearMonthKey(ms: Long): String {
+    val cal = java.util.Calendar.getInstance().apply { time = java.util.Date(ms) }
+    val month = cal.getDisplayName(java.util.Calendar.MONTH, java.util.Calendar.LONG, java.util.Locale.ENGLISH) ?: ""
+    val year = cal.get(java.util.Calendar.YEAR)
+    return "${month} $year".replaceFirstChar { it.uppercase() }
+}
+
+
+@Composable
+private fun WorkoutHistoryRow(
+    snap: WorkoutReportSnapshot,
+    onClick: () -> Unit
+) {
+    val type = runCatching { WorkoutType.valueOf(snap.type) }.getOrElse { WorkoutType.WALK }
+
+    val (icon, tint) = when (type) {
+        WorkoutType.WALK -> Icons.Default.DirectionsWalk to Color(0xFF2F80FF)
+        WorkoutType.RUN -> Icons.Default.DirectionsRun to Color(0xFF9B51E0)
+        WorkoutType.CYCLING -> Icons.Default.DirectionsBike to Color(0xFF27AE60)
+    }
+
+    val title = when (type) {
+        WorkoutType.WALK -> "Walk"
+        WorkoutType.RUN -> "Run"
+        WorkoutType.CYCLING -> "Cycling"
+    }
+
+    val km = snap.distanceMeters / 1000.0
+    val kmText = String.format(Locale.US, "%.2f km", km)
+
+    val timeText = remember(snap.startTimeMs) {
+        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+        sdf.format(Date(snap.startTimeMs))
+    }
+
+    val dayText = remember(snap.startTimeMs) {
+        val sdf = SimpleDateFormat("EEEE d MMMM", Locale.ENGLISH)
+        sdf.format(Date(snap.startTimeMs))
+    }
+
+    Surface(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(26.dp))
+            .clickable { onClick() },
+        color = Color.White,
+        shadowElevation = 8.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(tint.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
+            }
+
+            Spacer(Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(title, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color(0xFF5C5C5C))
+                    Text(timeText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6B6B6B))
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(kmText, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                    Text(dayText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6B6B6B),modifier = Modifier.padding(top = 6.dp))
+                }
+            }
+
+            Spacer(Modifier.width(10.dp))
+            Icon(imageVector = Icons.Default.KeyboardArrowRight, contentDescription = null, tint = Color(0xFFB0B0B0))
+        }
+    }
+}
+
+@Composable
+private fun WorkoutHistorySkeletonList() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        repeat(3) {
+            WorkoutHistorySkeletonRow()
+        }
+    }
+}
+
+@Composable
+private fun WorkoutHistorySkeletonRow() {
+    Surface(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .height(88.dp),
+        shape = RoundedCornerShape(26.dp),
+        color = Color(0xFFE6E6E6),
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon placeholder
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFD0D0D0))
+            )
+
+            Spacer(Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .height(16.dp)
+                        .width(140.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFD0D0D0))
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+                Box(
+                    modifier = Modifier
+                        .height(22.dp)
+                        .width(90.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFFC8C8C8))
+                )
+            }
+        }
+    }
+}
+
 
 

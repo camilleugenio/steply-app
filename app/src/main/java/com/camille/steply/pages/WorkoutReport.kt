@@ -48,20 +48,24 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.serialization.Serializable
 
 
 // -------------------- SNAPSHOT (Parcelable) --------------------
 
 @Parcelize
+@Serializable
 data class LatLngP(val lat: Double, val lon: Double) : Parcelable
 
 @Parcelize
+@Serializable
 data class TrackSegmentP(
     val dashed: Boolean,
     val points: List<LatLngP>
 ) : Parcelable
 
 @Parcelize
+@Serializable
 data class WorkoutReportSnapshot(
     val type: String,
     val startTimeMs: Long,

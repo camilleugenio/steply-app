@@ -48,6 +48,7 @@ import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.WorkoutType
 import com.camille.steply.viewmodel.WorkoutViewModel
 import com.camille.steply.viewmodel.WorkoutVmFactory
+import com.camille.steply.viewmodel.WorkoutHistoryViewModel
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -80,6 +81,8 @@ fun WorkoutScreen(
 
     // ✅ collect kcal from server loop (new)
     val kcal by workoutVm.kcal.collectAsState()
+
+    val historyVm: WorkoutHistoryViewModel = viewModel()
 
     LaunchedEffect(Unit) {
         runCatching { homeViewModel.fetchCurrentLatLngOnce() }
@@ -243,6 +246,8 @@ fun WorkoutScreen(
                                     launchSingleTop = true
                                     popUpTo(Routes.ACTIVITY) { inclusive = false } // ✅ elimina Workout dallo stack
                                 }
+
+                                historyVm.addWorkout(snapshot)
                             }
 
                             .padding(horizontal = 10.dp, vertical = 10.dp),
