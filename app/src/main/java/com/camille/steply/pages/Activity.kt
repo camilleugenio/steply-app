@@ -87,6 +87,7 @@ fun ActivityScreen(
 
     val historyVm: WorkoutHistoryViewModel = viewModel()
     val historyState by historyVm.uiState.collectAsState()
+    var showSkeleton by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         activityViewModel.events.collectLatest { event ->
@@ -98,6 +99,16 @@ fun ActivityScreen(
                     }
                 }
             }
+        }
+    }
+
+    LaunchedEffect(historyState.isLoading) {
+        if (historyState.isLoading) {
+            showSkeleton = false
+            kotlinx.coroutines.delay(250)
+            if (historyState.isLoading) showSkeleton = true
+        } else {
+            showSkeleton = false
         }
     }
 
@@ -195,8 +206,11 @@ fun ActivityScreen(
 
                 // history / testo
                 when {
-                    historyState.isLoading -> {
-                        WorkoutHistorySkeletonList()
+                    historyState.isLoading && showSkeleton -> { WorkoutHistorySkeletonList() }
+
+                    historyState.isLoading && !showSkeleton -> {
+                        // niente: evita flash, lascia spazio “vuoto” o una riga minima
+                        Spacer(Modifier.height(1.dp))
                     }
 
                     historyState.items.isEmpty() -> {
@@ -661,7 +675,7 @@ private fun WorkoutHistorySkeletonRow() {
             .fillMaxWidth()
             .height(88.dp),
         shape = RoundedCornerShape(26.dp),
-        color = Color(0xFFE6E6E6),
+        color = Color(0xFFF2F2F2),
         shadowElevation = 4.dp
     ) {
         Row(
@@ -675,7 +689,7 @@ private fun WorkoutHistorySkeletonRow() {
                 modifier = Modifier
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFD0D0D0))
+                    .background(Color(0xFFE8E8E8))
             )
 
             Spacer(Modifier.width(14.dp))
@@ -686,7 +700,7 @@ private fun WorkoutHistorySkeletonRow() {
                         .height(16.dp)
                         .width(140.dp)
                         .clip(RoundedCornerShape(6.dp))
-                        .background(Color(0xFFD0D0D0))
+                        .background(Color(0xFFE2E2E2))
                 )
 
                 Spacer(Modifier.height(10.dp))
