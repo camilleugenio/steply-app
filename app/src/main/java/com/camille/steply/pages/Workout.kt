@@ -214,11 +214,37 @@ fun WorkoutScreen(
                                 }
                                 context.startService(stopIntent)
 
-                                // ✅ stop server polling loop (new)
                                 workoutVm.stopKcalLoop()
 
-                                navController.popBackStack()
+                                // ✅ crea snapshot per report
+                                val st = mapState
+                                val snapshot = WorkoutReportSnapshot(
+                                    type = type.name,
+                                    startTimeMs = System.currentTimeMillis() - (elapsedSec * 1000L), // start stimato
+                                    durationSec = elapsedSec,
+                                    distanceMeters = st.distanceMeters,
+                                    kcal = kcal.roundToInt(),
+                                    meteoEmoji = homeState.meteoDesc,
+                                    meteoTempC = homeState.meteoTempC,
+                                    startPoint = st.startPoint?.let { LatLngP(it.latitude, it.longitude) },
+                                    segments = st.segments.map { seg ->
+                                        TrackSegmentP(
+                                            dashed = seg.dashed,
+                                            points = seg.points.map { p -> LatLngP(p.latitude, p.longitude) }
+                                        )
+                                    }
+                                )
+
+                                navController.getBackStackEntry(Routes.ACTIVITY)
+                                    .savedStateHandle
+                                    .set("workout_report_snapshot", snapshot)
+
+                                navController.navigate(Routes.WORKOUT_REPORT) {
+                                    launchSingleTop = true
+                                    popUpTo(Routes.ACTIVITY) { inclusive = false } // ✅ elimina Workout dallo stack
+                                }
                             }
+
                             .padding(horizontal = 10.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {

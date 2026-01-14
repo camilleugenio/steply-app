@@ -81,7 +81,6 @@ fun MainNavGraph() {
             Profile(navController = navController)
         }
 
-        // ✅ NUOVA WORKOUT SCREEN
         composable("${Routes.WORKOUT}/{type}") { backStackEntry ->
             val typeStr = backStackEntry.arguments?.getString("type") ?: WorkoutType.WALK.name
             val type = runCatching { WorkoutType.valueOf(typeStr) }.getOrElse { WorkoutType.WALK }
@@ -91,6 +90,10 @@ fun MainNavGraph() {
                 homeViewModel = homeViewModel,
                 type = type
             )
+        }
+
+        composable(Routes.WORKOUT_REPORT) {
+            WorkoutReportScreen(navController = navController)
         }
     }
 }
