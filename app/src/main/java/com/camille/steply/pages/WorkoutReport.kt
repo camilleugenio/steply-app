@@ -8,15 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.DirectionsBike
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,6 +23,7 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
@@ -44,12 +37,11 @@ import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.PatternItem
 import com.google.maps.android.compose.*
 import kotlinx.parcelize.Parcelize
+import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
-import kotlinx.serialization.Serializable
-
 
 // -------------------- SNAPSHOT (Parcelable) --------------------
 
@@ -86,7 +78,6 @@ private const val SNAPSHOT_KEY = "workout_report_snapshot"
 fun WorkoutReportScreen(
     navController: NavController
 ) {
-    // Legge lo snapshot dalla savedStateHandle
     val snapshot = remember {
         navController.previousBackStackEntry
             ?.savedStateHandle
@@ -94,7 +85,6 @@ fun WorkoutReportScreen(
     }
 
     if (snapshot == null) {
-        // fallback minimale
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -105,6 +95,25 @@ fun WorkoutReportScreen(
         }
         return
     }
+
+    // ✅ Responsive knobs
+    val config = LocalConfiguration.current
+    val screenW = config.screenWidthDp
+    val screenHdp = config.screenHeightDp
+    val isSmall = screenW < 380
+
+    val hPad = if (isSmall) 14.dp else 16.dp
+    val cardBottomPad = if (isSmall) 14.dp else 22.dp
+    val cardInnerPad = if (isSmall) 14.dp else 18.dp
+    val cardCorner = if (isSmall) 26.dp else 30.dp
+
+    val titleSize = if (isSmall) 18.sp else 20.sp
+    val dateSize = if (isSmall) 12.sp else 13.sp
+    val valueSize = if (isSmall) 20.sp else 22.sp
+    val statGap = if (isSmall) 12.dp else 18.dp
+
+    // card max height ~40-45% schermo (con cap)
+    val cardMaxH = minOf((screenHdp.dp * 0.45f), if (isSmall) 340.dp else 380.dp)
 
     val type = runCatching { WorkoutType.valueOf(snapshot.type) }.getOrElse { WorkoutType.WALK }
 
@@ -130,16 +139,12 @@ fun WorkoutReportScreen(
     val km = snapshot.distanceMeters / 1000.0
     val kmText = String.format(Locale.US, "%.2f", km)
 
-    // ✅ velocità media: km/h
-    val avgSpeedKmh = if (snapshot.durationSec > 0) {
-        (km / (snapshot.durationSec / 3600.0))
-    } else 0.0
+    val avgSpeedKmh = if (snapshot.durationSec > 0) (km / (snapshot.durationSec / 3600.0)) else 0.0
     val avgSpeedText = String.format(Locale.US, "%.1f", avgSpeedKmh)
 
     val dateText = remember(snapshot.startTimeMs) {
         val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy 'at' HH:mm", Locale.ENGLISH)
-        sdf.format(Date(snapshot.startTimeMs))
-            .replaceFirstChar { it.uppercase() }
+        sdf.format(Date(snapshot.startTimeMs)).replaceFirstChar { it.uppercase() }
     }
 
     // punti mappa
@@ -147,24 +152,54 @@ fun WorkoutReportScreen(
     val end = snapshot.segments.lastOrNull()?.points?.lastOrNull()
         ?.let { com.google.android.gms.maps.model.LatLng(it.lat, it.lon) }
 
-    val allPoints = snapshot.segments.flatMap { it.points }
-    val initialCenter = end
-        ?: start
-        ?: allPoints.firstOrNull()?.let { com.google.android.gms.maps.model.LatLng(it.lat, it.lon) }
+    // tutti i punti convertiti in LatLng Google
+    val allPtsG = remember(snapshot) {
+        snapshot.segments
+            .flatMap { it.points }
+            .map { com.google.android.gms.maps.model.LatLng(it.lat, it.lon) }
+    }
+
+    // bounds che include tutto il percorso
+    val bounds = remember(allPtsG) {
+        if (allPtsG.isNotEmpty()) {
+            val b = com.google.android.gms.maps.model.LatLngBounds.Builder()
+            allPtsG.forEach { b.include(it) }
+            b.build()
+        } else null
+    }
+
 
     Box(modifier = Modifier.fillMaxSize()) {
 
         // -------------------- MAP (full screen) --------------------
-        if (initialCenter != null) {
-            val cameraState = rememberCameraPositionState {
-                position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(initialCenter, 16f)
-            }
+        if (bounds != null || start != null || end != null) {
 
-            LaunchedEffect(initialCenter) {
-                cameraState.animate(
-                    update = CameraUpdateFactory.newLatLngZoom(initialCenter, 16.5f),
-                    durationMs = 550
-                )
+            val cameraState = rememberCameraPositionState()
+
+            val density = LocalDensity.current
+
+            LaunchedEffect(bounds, isSmall, start, end) {
+                val paddingPx = with(density) {
+                    (if (isSmall) 140.dp else 160.dp).roundToPx()
+                }
+
+                when {
+                    bounds != null && allPtsG.size >= 2 -> {
+                        cameraState.animate(
+                            update = CameraUpdateFactory.newLatLngBounds(bounds, paddingPx),
+                            durationMs = 650
+                        )
+                    }
+                    else -> {
+                        val p = end ?: start
+                        if (p != null) {
+                            cameraState.animate(
+                                update = CameraUpdateFactory.newLatLngZoom(p, 16.5f),
+                                durationMs = 550
+                            )
+                        }
+                    }
+                }
             }
 
             GoogleMap(
@@ -191,7 +226,6 @@ fun WorkoutReportScreen(
                     }
                 }
 
-                // START marker
                 if (start != null) {
                     val startIcon = rememberStartMarkerIconWithLabel(
                         bgColor = trackColor,
@@ -201,25 +235,22 @@ fun WorkoutReportScreen(
                     Marker(
                         state = MarkerState(position = start),
                         icon = startIcon,
-                        anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.35f)
+                        anchor = Offset(0.5f, 0.35f)
                     )
                 }
 
-                // FINISH marker (bandiera)
                 if (end != null) {
                     val finishIcon = rememberStartMarkerIconWithLabel(
                         bgColor = trackColor,
                         icon = Icons.Default.Flag,
                         label = "Finish"
                     )
-
                     Marker(
                         state = MarkerState(position = end),
                         icon = finishIcon,
-                        anchor = Offset(0.5f, 0.35f) // stesso anchor di Start
+                        anchor = Offset(0.5f, 0.35f)
                     )
                 }
-
             }
         } else {
             Box(
@@ -236,8 +267,8 @@ fun WorkoutReportScreen(
         Box(
             modifier = Modifier
                 .statusBarsPadding()
-                .padding(start = 16.dp, top = 14.dp)
-                .size(44.dp)
+                .padding(start = hPad, top = 12.dp)
+                .size(if (isSmall) 42.dp else 44.dp)
                 .clip(CircleShape)
                 .background(Color.White)
                 .clickable {
@@ -252,7 +283,7 @@ fun WorkoutReportScreen(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Close",
                 tint = Color.Black,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(if (isSmall) 20.dp else 22.dp)
             )
         }
 
@@ -261,28 +292,27 @@ fun WorkoutReportScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 16.dp,
-                    end = 16.dp,
-                    bottom = 36.dp ),
-            shape = RoundedCornerShape(30.dp),
+                .navigationBarsPadding()
+                .padding(start = hPad, end = hPad, bottom = cardBottomPad)
+                .heightIn(max = cardMaxH),
+            shape = RoundedCornerShape(cardCorner),
             color = Color.White,
             shadowElevation = 12.dp
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
+            Column(modifier = Modifier.padding(cardInnerPad)) {
 
-                // Header row: activity left, weather right
+                // Header row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left: icon + title + date
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(42.dp)
+                                .size(if (isSmall) 40.dp else 42.dp)
                                 .clip(CircleShape)
                                 .background(trackColor.copy(alpha = 0.15f)),
                             contentAlignment = Alignment.Center
@@ -291,81 +321,123 @@ fun WorkoutReportScreen(
                                 imageVector = activityIcon,
                                 contentDescription = null,
                                 tint = trackColor,
-                                modifier = Modifier.size(22.dp)
+                                modifier = Modifier.size(if (isSmall) 20.dp else 22.dp)
                             )
                         }
 
-                        Spacer(Modifier.width(12.dp))
+                        Spacer(Modifier.width(if (isSmall) 10.dp else 12.dp))
 
                         Column {
                             Text(
                                 text = title,
-                                fontSize = 20.sp,
+                                fontSize = titleSize,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 text = dateText,
-                                fontSize = 13.sp,
+                                fontSize = dateSize,
                                 fontWeight = FontWeight.Medium,
                                 color = Color(0xFF6B6B6B)
                             )
                         }
                     }
 
-                    // Right: meteo
                     Column(horizontalAlignment = Alignment.End) {
-                        Text(text = snapshot.meteoEmoji, fontSize = 20.sp)
+                        Text(text = snapshot.meteoEmoji, fontSize = if (isSmall) 18.sp else 20.sp)
                         Text(
                             text = "${snapshot.meteoTempC}°C",
-                            fontSize = 14.sp,
+                            fontSize = if (isSmall) 13.sp else 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black
                         )
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(if (isSmall) 16.dp else 24.dp))
 
-                // Stats grid (2x2)
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        StatBig(
+                // ✅ Stats responsive:
+                // - small: 1 colonna (sempre sicuro)
+                // - normal: 2 colonne
+                if (isSmall) {
+                    Column(verticalArrangement = Arrangement.spacedBy(statGap)) {
+                        StatBigResponsive(
                             icon = Icons.Default.Timer,
                             iconTint = Color(0xFF7064AF),
                             title = "Duration",
-                            value = durationText
+                            value = durationText,
+                            valueSize = valueSize
                         )
-                        StatBig(
+                        StatBigResponsive(
                             icon = Icons.Default.Route,
                             iconTint = Color(0xFF32ADE6),
                             title = "Distance",
-                            value = "$kmText km"
+                            value = "$kmText km",
+                            valueSize = valueSize
                         )
-                    }
-
-                    Spacer(Modifier.height(18.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        StatBig(
+                        StatBigResponsive(
                             icon = Icons.Default.LocalFireDepartment,
                             iconTint = Color(0xFFFF9500),
                             title = "Total Energy",
-                            value = "${snapshot.kcal} kcal"
+                            value = "${snapshot.kcal} kcal",
+                            valueSize = valueSize
                         )
-                        StatBig(
+                        StatBigResponsive(
                             icon = Icons.Default.Speed,
                             iconTint = Color(0xFF27AE60),
                             title = "Avg Speed",
-                            value = "$avgSpeedText km/h"
+                            value = "$avgSpeedText km/h",
+                            valueSize = valueSize
                         )
+                    }
+                } else {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            StatBigResponsive(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Default.Timer,
+                                iconTint = Color(0xFF7064AF),
+                                title = "Duration",
+                                value = durationText,
+                                valueSize = valueSize
+                            )
+                            StatBigResponsive(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Default.Route,
+                                iconTint = Color(0xFF32ADE6),
+                                title = "Distance",
+                                value = "$kmText km",
+                                valueSize = valueSize
+                            )
+                        }
+
+                        Spacer(Modifier.height(statGap))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            StatBigResponsive(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Default.LocalFireDepartment,
+                                iconTint = Color(0xFFFF9500),
+                                title = "Total Energy",
+                                value = "${snapshot.kcal} kcal",
+                                valueSize = valueSize
+                            )
+                            StatBigResponsive(
+                                modifier = Modifier.weight(1f),
+                                icon = Icons.Default.Speed,
+                                iconTint = Color(0xFF27AE60),
+                                title = "Avg Speed",
+                                value = "$avgSpeedText km/h",
+                                valueSize = valueSize
+                            )
+                        }
                     }
                 }
             }
@@ -376,15 +448,22 @@ fun WorkoutReportScreen(
 // -------------------- UI pieces --------------------
 
 @Composable
-private fun StatBig(
+private fun StatBigResponsive(
+    modifier: Modifier = Modifier,
     icon: ImageVector,
     iconTint: Color,
     title: String,
-    value: String
+    value: String,
+    valueSize: TextUnit
 ) {
-    Column(modifier = Modifier.widthIn(min = 140.dp)) {
+    Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = icon, contentDescription = title, tint = iconTint, modifier = Modifier.size(16.dp))
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = iconTint,
+                modifier = Modifier.size(16.dp)
+            )
             Spacer(Modifier.width(6.dp))
             Text(
                 text = title,
@@ -396,7 +475,7 @@ private fun StatBig(
         Spacer(Modifier.height(5.dp))
         Text(
             text = value,
-            fontSize = 22.sp,
+            fontSize = valueSize,
             color = Color.Black,
             fontWeight = FontWeight.Bold
         )
@@ -408,82 +487,6 @@ private fun formatDuration(totalSec: Int): String {
     val s = totalSec % 60
     return "%02d:%02d".format(m, s)
 }
-
-// -------------------- FINISH MARKER (flag) --------------------
-
-@Composable
-private fun rememberFinishMarkerIcon(
-    bgColor: Color,
-    icon: ImageVector,
-    size: Dp = 38.dp,
-    iconSize: Dp = 20.dp
-): BitmapDescriptor {
-    val density = LocalDensity.current
-    val painter = rememberVectorPainter(image = icon)
-
-    return remember(bgColor, icon, density) {
-        val sPx = with(density) { size.toPx() }
-        val iconPx = with(density) { iconSize.toPx() }
-
-        val bmpW = sPx.toInt()
-        val bmpH = (sPx * 1.2f).toInt()
-
-        val imageBitmap = ImageBitmap(bmpW, bmpH)
-        val canvas = Canvas(imageBitmap)
-
-        val centerX = bmpW / 2f
-        val circleCenterY = sPx / 2f
-
-        val drawScope = CanvasDrawScope()
-        drawScope.draw(
-            density = density,
-            layoutDirection = LayoutDirection.Ltr,
-            canvas = canvas,
-            size = IntSize(bmpW, bmpH).toSize()
-        ) {
-            drawCircle(
-                color = bgColor,
-                radius = sPx / 2f,
-                center = Offset(centerX, circleCenterY)
-            )
-
-            val path = androidx.compose.ui.graphics.Path().apply {
-                moveTo(centerX - sPx * 0.16f, sPx)
-                lineTo(centerX + sPx * 0.16f, sPx)
-                lineTo(centerX, sPx * 1.16f)
-                close()
-            }
-            drawPath(path, bgColor)
-        }
-
-        // icona bandiera su bitmap separata
-        val iconBitmap = ImageBitmap(iconPx.toInt(), iconPx.toInt())
-        val iconCanvas = Canvas(iconBitmap)
-        drawScope.draw(
-            density = density,
-            layoutDirection = LayoutDirection.Ltr,
-            canvas = iconCanvas,
-            size = IntSize(iconPx.toInt(), iconPx.toInt()).toSize()
-        ) {
-            with(painter) {
-                draw(
-                    size = androidx.compose.ui.geometry.Size(iconPx, iconPx),
-                    alpha = 1f,
-                    colorFilter = ColorFilter.tint(Color.White)
-                )
-            }
-        }
-
-        val native = canvas.nativeCanvas
-        val left = centerX - iconPx / 2f
-        val top = circleCenterY - iconPx / 2f
-        native.drawBitmap(iconBitmap.asAndroidBitmap(), left, top, null)
-
-        BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
-    }
-}
-
-
 
 // -------------------- START MARKER --------------------
 
@@ -583,4 +586,3 @@ private fun rememberStartMarkerIconWithLabel(
         BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
     }
 }
-
