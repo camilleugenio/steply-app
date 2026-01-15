@@ -137,7 +137,7 @@ fun WorkoutReportScreen(
     val avgSpeedText = String.format(Locale.US, "%.1f", avgSpeedKmh)
 
     val dateText = remember(snapshot.startTimeMs) {
-        val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy 'at' h:mm a", Locale.ENGLISH)
+        val sdf = SimpleDateFormat("EEEE, MMMM d, yyyy 'at' HH:mm", Locale.ENGLISH)
         sdf.format(Date(snapshot.startTimeMs))
             .replaceFirstChar { it.uppercase() }
     }

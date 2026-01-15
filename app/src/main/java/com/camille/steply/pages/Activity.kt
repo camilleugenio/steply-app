@@ -70,6 +70,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.ui.graphics.Brush
 
 
 @Composable
@@ -230,9 +236,9 @@ fun ActivityScreen(
                     }
 
                     else -> {
-                        ActivityHistoryList(
-                            items = historyState.items,
-                            onItemClick = { snap ->
+                        ActivityHistorySection(
+                            history = historyState.items,
+                            onClick = { snap ->
                                 navController.currentBackStackEntry
                                     ?.savedStateHandle
                                     ?.set("workout_report_snapshot", snap)
@@ -240,7 +246,10 @@ fun ActivityScreen(
                                 navController.navigate(Routes.WORKOUT_REPORT) {
                                     launchSingleTop = true
                                 }
-                            }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)   // IMPORTANTISSIMO: prende lo spazio sotto al meteo
                         )
                     }
                 }
@@ -533,38 +542,47 @@ private fun CountdownFullScreen(
 // -------------------- HISTORY--------------------
 
 @Composable
-private fun ActivityHistoryList(
-    items: List<WorkoutReportSnapshot>,
-    onItemClick: (WorkoutReportSnapshot) -> Unit
+private fun ActivityHistorySection(
+    history: List<WorkoutReportSnapshot>,
+    onClick: (WorkoutReportSnapshot) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val grouped = remember(items) {
-        items.groupBy { yearMonthKey(it.startTimeMs) } // es "gennaio 2026"
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    val currentMonthKey by remember(history, listState) {
+        derivedStateOf {
+            val idx = listState.firstVisibleItemIndex
+            val snap = history.getOrNull(idx)
+            snap?.let { yearMonthKey(it.startTimeMs) } ?: ""
+        }
     }
 
-    val order = remember(items) { grouped.keys.toList() } // già in ordine perché items è sorted desc
+    Column(modifier = modifier) {
 
-    androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 20.dp),
-        contentPadding = PaddingValues(bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        order.forEach { monthKey ->
-            item {
-                Text(
-                    text = monthKey,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                )
-            }
+        // ✅ mese fisso (NON scrolla)
+        if (currentMonthKey.isNotBlank()) {
+            Text(
+                text = currentMonthKey,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp)
+            )
+        }
 
-            val monthItems = grouped[monthKey].orEmpty()
-            items(monthItems.size) { idx ->
-                val snap = monthItems[idx]
-                WorkoutHistoryRow(snap = snap, onClick = { onItemClick(snap) })
+        Spacer(Modifier.height(2.dp))
+
+        // lista che scrolla con sfumature
+        FadedEdgesLazyColumn(
+            state = listState,
+            topFadeHeight = 26.dp,
+            bottomFadeHeight = 26.dp
+        ) {
+            items(
+                items = history,
+                key = { it.startTimeMs }
+            ) { snap ->
+                WorkoutHistoryRow(snap = snap, onClick = { onClick(snap) })
             }
         }
     }
@@ -614,7 +632,7 @@ private fun WorkoutHistoryRow(
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(26.dp))
+            .clip(RoundedCornerShape(22.dp))
             .clickable { onClick() },
         color = Color.White,
         shadowElevation = 8.dp
@@ -714,6 +732,56 @@ private fun WorkoutHistorySkeletonRow() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun FadedEdgesLazyColumn(
+    state: androidx.compose.foundation.lazy.LazyListState,
+    topFadeHeight: Dp,
+    bottomFadeHeight: Dp,
+    content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit
+) {
+    val bg = Color(0xFFF4F1EC)
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+    ) {
+        androidx.compose.foundation.lazy.LazyColumn(
+            state = state,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 15.dp, bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            content()
+        }
+
+        // fade TOP
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(topFadeHeight)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(bg, bg.copy(alpha = 0f))
+                    )
+                )
+        )
+
+        // fade BOTTOM
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(bottomFadeHeight)
+                .align(Alignment.BottomCenter)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(bg.copy(alpha = 0f), bg)
+                    )
+                )
+        )
     }
 }
 
