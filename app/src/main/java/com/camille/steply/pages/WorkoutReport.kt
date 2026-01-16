@@ -355,89 +355,57 @@ fun WorkoutReportScreen(
                     }
                 }
 
-                Spacer(Modifier.height(if (isSmall) 16.dp else 24.dp))
+                Spacer(Modifier.height(if (isSmall) 14.dp else 24.dp))
 
-                // ✅ Stats responsive:
-                // - small: 1 colonna (sempre sicuro)
-                // - normal: 2 colonne
-                if (isSmall) {
-                    Column(verticalArrangement = Arrangement.spacedBy(statGap)) {
-                        StatBigResponsive(
+// ✅ 2x2 SEMPRE, anche su schermi piccoli
+                val cellGap = if (isSmall) 10.dp else 16.dp
+                val rowGap = if (isSmall) 12.dp else 18.dp
+
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(cellGap)
+                    ) {
+                        StatBigGridCell(
+                            modifier = Modifier.weight(1f),
                             icon = Icons.Default.Timer,
                             iconTint = Color(0xFF7064AF),
                             title = "Duration",
                             value = durationText,
-                            valueSize = valueSize
+                            isSmall = isSmall
                         )
-                        StatBigResponsive(
+                        StatBigGridCell(
+                            modifier = Modifier.weight(1f),
                             icon = Icons.Default.Route,
                             iconTint = Color(0xFF32ADE6),
                             title = "Distance",
                             value = "$kmText km",
-                            valueSize = valueSize
+                            isSmall = isSmall
                         )
-                        StatBigResponsive(
+                    }
+
+                    Spacer(Modifier.height(rowGap))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(cellGap)
+                    ) {
+                        StatBigGridCell(
+                            modifier = Modifier.weight(1f),
                             icon = Icons.Default.LocalFireDepartment,
                             iconTint = Color(0xFFFF9500),
                             title = "Total Energy",
                             value = "${snapshot.kcal} kcal",
-                            valueSize = valueSize
+                            isSmall = isSmall
                         )
-                        StatBigResponsive(
+                        StatBigGridCell(
+                            modifier = Modifier.weight(1f),
                             icon = Icons.Default.Speed,
                             iconTint = Color(0xFF27AE60),
                             title = "Avg Speed",
                             value = "$avgSpeedText km/h",
-                            valueSize = valueSize
+                            isSmall = isSmall
                         )
-                    }
-                } else {
-                    Column {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            StatBigResponsive(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Timer,
-                                iconTint = Color(0xFF7064AF),
-                                title = "Duration",
-                                value = durationText,
-                                valueSize = valueSize
-                            )
-                            StatBigResponsive(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Route,
-                                iconTint = Color(0xFF32ADE6),
-                                title = "Distance",
-                                value = "$kmText km",
-                                valueSize = valueSize
-                            )
-                        }
-
-                        Spacer(Modifier.height(statGap))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            StatBigResponsive(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.LocalFireDepartment,
-                                iconTint = Color(0xFFFF9500),
-                                title = "Total Energy",
-                                value = "${snapshot.kcal} kcal",
-                                valueSize = valueSize
-                            )
-                            StatBigResponsive(
-                                modifier = Modifier.weight(1f),
-                                icon = Icons.Default.Speed,
-                                iconTint = Color(0xFF27AE60),
-                                title = "Avg Speed",
-                                value = "$avgSpeedText km/h",
-                                valueSize = valueSize
-                            )
-                        }
                     }
                 }
             }
@@ -448,36 +416,45 @@ fun WorkoutReportScreen(
 // -------------------- UI pieces --------------------
 
 @Composable
-private fun StatBigResponsive(
+private fun StatBigGridCell(
     modifier: Modifier = Modifier,
     icon: ImageVector,
     iconTint: Color,
     title: String,
     value: String,
-    valueSize: TextUnit
+    isSmall: Boolean
 ) {
+    val titleSize = if (isSmall) 12.sp else 13.sp
+    val valueSize = if (isSmall) 18.sp else 22.sp
+    val iconSize = if (isSmall) 15.dp else 16.dp
+    val topGap = if (isSmall) 4.dp else 5.dp
+
     Column(modifier = modifier) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = icon,
                 contentDescription = title,
                 tint = iconTint,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(iconSize)
             )
             Spacer(Modifier.width(6.dp))
             Text(
                 text = title,
-                fontSize = 13.sp,
+                fontSize = titleSize,
                 color = Color(0xFF7A7A7A),
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                maxLines = 1
             )
         }
-        Spacer(Modifier.height(5.dp))
+
+        Spacer(Modifier.height(topGap))
+
         Text(
             text = value,
             fontSize = valueSize,
             color = Color.Black,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
         )
     }
 }
