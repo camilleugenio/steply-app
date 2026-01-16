@@ -5,8 +5,12 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Intent
 import android.content.Context
+import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -17,17 +21,20 @@ import com.camille.steply.data.StepSensor
 import com.camille.steply.data.todayMidnightEpochMillis
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
+import kotlin.math.sqrt
 
-class StepForegroundService : Service() {
+class StepForegroundService : Service(), SensorEventListener {
 
     companion object {
         const val CHANNEL_ID = "steps_foreground"
         const val NOTIF_ID = 1001
+
+        const val GOAL_CHANNEL_ID = "goal_reached"
+        const val GOAL_NOTIFY_ID = 2001
 
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
@@ -36,7 +43,6 @@ class StepForegroundService : Service() {
             val intent = Intent(context, StepForegroundService::class.java).apply {
                 action = ACTION_START
             }
-
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {
@@ -52,26 +58,36 @@ class StepForegroundService : Service() {
         }
     }
 
-    // ---- Coroutine scope ----
     private val serviceJob = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
 
-    // ---- Data ----
     private lateinit var store: StepDataStore
-    private lateinit var sensor: StepSensor
+    private lateinit var stepSensor: StepSensor
 
+    // Real step counter baseline
     private var listening = false
     private var dayStart = 0L
     private var baseSteps = 0L
 
-    // Emulator / no-sensor safeguard
-    private var heartbeatJob: Job? = null
+    // Emulator accelerometer fallback
+    private var accelEnabled = false
+    private lateinit var sensorManager: SensorManager
+    private var accelerometer: Sensor? = null
+
+    private var lastStepTime = 0L
+    private val threshold = 11.5f
+    private val minStepInterval = 400L
 
     override fun onCreate() {
         super.onCreate()
         store = StepDataStore(applicationContext)
-        sensor = StepSensor(applicationContext)
+        stepSensor = StepSensor(applicationContext)
+
+        sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
         createNotificationChannel()
+        createGoalNotificationChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -90,59 +106,31 @@ class StepForegroundService : Service() {
         if (listening) return
         listening = true
 
-        // Persist toggle for reboot restart + UI
         scope.launch { store.setTrackingEnabled(true) }
 
-        // Foreground notification must appear immediately
+        // Show foreground notification immediately
         startForeground(NOTIF_ID, buildNotification(steps = 0))
 
         scope.launch {
             dayStart = store.getDayStartEpoch()
             baseSteps = store.getBaseStepsFromBoot()
-
-            sensor.startListening { currentFromBoot ->
-                scope.launch {
-                    val midnight = todayMidnightEpochMillis()
-
-                    // New day → reset baseline
-                    if (dayStart != midnight) {
-                        dayStart = midnight
-                        baseSteps = currentFromBoot
-                        store.setBaseline(dayStart, baseSteps)
-                    }
-
-                    // Reboot-safe
-                    if (currentFromBoot < baseSteps) {
-                        baseSteps = currentFromBoot
-                        store.setBaseline(dayStart, baseSteps)
-                    }
-
-                    val todaySteps =
-                        (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
-
-                    // Single source of truth
-                    store.setStepsForDayStartEpoch(dayStart, todaySteps)
-
-                    // Re-assert foreground notification
-                    startForeground(
-                        NOTIF_ID,
-                        buildNotification(todaySteps)
-                    )
-                }
-            }
         }
 
-        // ✅ Heartbeat (emulator / no sensor case)
-        startHeartbeat()
+        // If step counter sensor exists -> use it (real phone behavior)
+        if (stepSensor.hasSensor()) {
+            startRealStepCounter()
+        } else {
+            // Emulator / no step counter -> accelerometer shake fallback
+            startAccelerometerFallback()
+        }
     }
 
     private fun stopTracking() {
         listening = false
 
-        heartbeatJob?.cancel()
-        heartbeatJob = null
-
-        sensor.stopListening()
+        // stop both possible sources
+        stepSensor.stopListening()
+        stopAccelerometerFallback()
 
         scope.launch { store.setTrackingEnabled(false) }
 
@@ -151,34 +139,121 @@ class StepForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        heartbeatJob?.cancel()
+        stepSensor.stopListening()
+        stopAccelerometerFallback()
         scope.cancel()
-        sensor.stopListening()
         super.onDestroy()
     }
 
-    // -------------------- HEARTBEAT --------------------
+    // -------------------- REAL STEP COUNTER --------------------
 
-    private fun startHeartbeat() {
-        heartbeatJob?.cancel()
+    private fun startRealStepCounter() {
+        // Ensure fallback is off
+        stopAccelerometerFallback()
 
-        heartbeatJob = scope.launch {
-            while (listening) {
+        stepSensor.startListening { currentFromBoot ->
+            scope.launch {
                 val midnight = todayMidnightEpochMillis()
-                val steps = store.getStepsForDayStartEpoch(midnight)
 
-                // Re-attach foreground notification
-                startForeground(
-                    NOTIF_ID,
-                    buildNotification(steps)
-                )
+                // New day -> reset baseline + allow goal notification again
+                if (dayStart != midnight) {
+                    dayStart = midnight
+                    baseSteps = currentFromBoot
+                    store.setBaseline(dayStart, baseSteps)
+                    store.clearGoalNotifiedIso()
+                }
 
-                delay(1000L) //
+                // Reboot-safe
+                if (currentFromBoot < baseSteps) {
+                    baseSteps = currentFromBoot
+                    store.setBaseline(dayStart, baseSteps)
+                }
+
+                val todaySteps = (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
+
+                // Persist + update notif + maybe goal
+                store.setStepsForDayStartEpoch(dayStart, todaySteps)
+                maybeNotifyGoal(todaySteps)
+
+                startForeground(NOTIF_ID, buildNotification(todaySteps))
             }
         }
     }
 
-    // -------------------- NOTIFICATION --------------------
+    // -------------------- ACCELEROMETER FALLBACK (EMULATOR) --------------------
+
+    private fun startAccelerometerFallback() {
+        if (accelEnabled) return
+        accelEnabled = true
+
+        // if no accel sensor, we still keep the foreground notif alive
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+    }
+
+    private fun stopAccelerometerFallback() {
+        if (!accelEnabled) return
+        accelEnabled = false
+        try {
+            sensorManager.unregisterListener(this)
+        } catch (_: Exception) {}
+    }
+
+    override fun onSensorChanged(event: SensorEvent) {
+        if (!listening) return
+        if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
+
+        val x = event.values[0]
+        val y = event.values[1]
+        val z = event.values[2]
+        val magnitude = sqrt(x * x + y * y + z * z)
+
+        val now = System.currentTimeMillis()
+        if (magnitude > threshold && now - lastStepTime > minStepInterval) {
+            lastStepTime = now
+
+            scope.launch {
+                val midnight = todayMidnightEpochMillis()
+
+                // new day for emulator path too
+                if (dayStart != midnight) {
+                    dayStart = midnight
+                    store.clearGoalNotifiedIso()
+                }
+
+                // increment today steps based on stored value
+                val current = store.getStepsForDayStartEpoch(midnight)
+                val next = current + 1
+
+                store.setStepsForDayStartEpoch(midnight, next)
+                maybeNotifyGoal(next)
+
+                startForeground(NOTIF_ID, buildNotification(next))
+            }
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+
+    // -------------------- GOAL NOTIFICATION --------------------
+
+    private suspend fun maybeNotifyGoal(todaySteps: Int) {
+        val goal = store.getDailyGoal(default = 50)
+        if (goal <= 0) return
+
+        val todayIso = LocalDate.now().toString()
+        val alreadyNotifiedIso = store.getGoalNotifiedIso()
+
+        if (todaySteps >= goal && alreadyNotifiedIso != todayIso) {
+            store.setGoalNotifiedIso(todayIso)
+
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.notify(GOAL_NOTIFY_ID, buildGoalReachedNotification(todaySteps, goal))
+        }
+    }
+
+    // -------------------- NOTIFICATIONS --------------------
 
     private fun buildNotification(steps: Int): Notification {
         val openAppIntent = PendingIntent.getActivity(
@@ -204,6 +279,27 @@ class StepForegroundService : Service() {
             .build()
     }
 
+    private fun buildGoalReachedNotification(steps: Int, goal: Int): Notification {
+        val openAppIntent = PendingIntent.getActivity(
+            this,
+            1, // different request code from foreground notification
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        return NotificationCompat.Builder(this, GOAL_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground) // replace later
+            .setContentTitle("Goal reached! 🎉")
+            .setContentText("You hit $goal steps.")
+            .setShowWhen(false)
+            .setAutoCancel(true)
+            .setOnlyAlertOnce(true)
+            .setContentIntent(openAppIntent)
+            .build()
+    }
+
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -214,7 +310,21 @@ class StepForegroundService : Service() {
                 description = "Shows your daily steps"
                 setShowBadge(false)
             }
+            val nm = getSystemService(NotificationManager::class.java)
+            nm.createNotificationChannel(channel)
+        }
+    }
 
+    private fun createGoalNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                GOAL_CHANNEL_ID,
+                "Goal reached",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Notifies when you reach your daily step goal"
+                setShowBadge(true)
+            }
             val nm = getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(channel)
         }

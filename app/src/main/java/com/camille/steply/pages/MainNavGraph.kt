@@ -45,12 +45,12 @@ fun MainNavGraph() {
     }
 
     // ✅ Start simulator ONCE for the whole app (emulator only)
-    DisposableEffect(Unit) {
-        if (isEmulator) homeViewModel.startAccelerometerSimulation()
-        onDispose {
-            if (isEmulator) homeViewModel.stopAccelerometerSimulation()
-        }
-    }
+//    DisposableEffect(Unit) {
+//        if (isEmulator) homeViewModel.startAccelerometerSimulation()
+//        onDispose {
+//            if (isEmulator) homeViewModel.stopAccelerometerSimulation()
+//        }
+//    }
 
     // ✅ Start/stop the real foreground service based on stored toggle
     val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)

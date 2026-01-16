@@ -166,12 +166,15 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 //        }
 //    }
 
-    // ✅ If tracking enabled, ensure the service is running (real device only)
-    LaunchedEffect(trackingEnabled, isEmulator, inPreview) {
-        if (!inPreview && !isEmulator && trackingEnabled) {
-            homeViewModel.startStepUpdates()
+
+    // ✅ If tracking enabled, ensure the service is running (device + emulator)
+    LaunchedEffect(trackingEnabled, inPreview) {
+        if (!inPreview) {
+            if (trackingEnabled) homeViewModel.startStepUpdates()
+            else homeViewModel.stopStepUpdates()
         }
     }
+
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()

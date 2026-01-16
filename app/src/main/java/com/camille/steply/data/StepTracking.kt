@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
@@ -66,6 +67,10 @@ class StepDataStore(private val context: Context) {
     // ✅ NEW: persisted toggle for "always-on tracking"
     private val KEY_TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
 
+    // ✅ NEW: daily goal + "goal notified day" (ISO string)
+    private val KEY_DAILY_GOAL = intPreferencesKey("daily_goal")
+    private val KEY_GOAL_NOTIFIED_ISO = stringPreferencesKey("goal_notified_iso")
+
     private val dataStore = context.dataStore
 
     // -------------------- Versione Mobile --------------------
@@ -98,6 +103,28 @@ class StepDataStore(private val context: Context) {
 
     fun trackingEnabledFlow(): Flow<Boolean> {
         return dataStore.data.map { prefs -> prefs[KEY_TRACKING_ENABLED] ?: false }
+    }
+
+    // ✅ Daily goal
+    suspend fun getDailyGoal(default: Int = 50): Int {
+        return dataStore.data.first()[KEY_DAILY_GOAL] ?: default
+    }
+
+    suspend fun setDailyGoal(value: Int) {
+        dataStore.edit { prefs -> prefs[KEY_DAILY_GOAL] = value }
+    }
+
+    // ✅ Goal notification (one-shot per day)
+    suspend fun getGoalNotifiedIso(): String? {
+        return dataStore.data.first()[KEY_GOAL_NOTIFIED_ISO]
+    }
+
+    suspend fun setGoalNotifiedIso(iso: String) {
+        dataStore.edit { prefs -> prefs[KEY_GOAL_NOTIFIED_ISO] = iso }
+    }
+
+    suspend fun clearGoalNotifiedIso() {
+        dataStore.edit { prefs -> prefs.remove(KEY_GOAL_NOTIFIED_ISO) }
     }
 
     // -------------------- Versione Emulator --------------------
