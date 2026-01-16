@@ -71,6 +71,10 @@ class StepDataStore(private val context: Context) {
     private val KEY_DAILY_GOAL = intPreferencesKey("daily_goal")
     private val KEY_GOAL_NOTIFIED_ISO = stringPreferencesKey("goal_notified_iso")
 
+    // ✅ NEW: goal notification toggle (bell). Default = true
+    private val KEY_GOAL_NOTIFICATION_ENABLED = booleanPreferencesKey("goal_notification_enabled")
+
+
     private val dataStore = context.dataStore
 
     // -------------------- Versione Mobile --------------------
@@ -104,6 +108,19 @@ class StepDataStore(private val context: Context) {
     fun trackingEnabledFlow(): Flow<Boolean> {
         return dataStore.data.map { prefs -> prefs[KEY_TRACKING_ENABLED] ?: false }
     }
+    // ✅ Goal notification enabled (bell toggle)
+    suspend fun setGoalNotificationEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] = enabled }
+    }
+
+    suspend fun isGoalNotificationEnabled(): Boolean {
+        return dataStore.data.first()[KEY_GOAL_NOTIFICATION_ENABLED] ?: true
+    }
+
+    fun goalNotificationEnabledFlow(): Flow<Boolean> {
+        return dataStore.data.map { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] ?: true }
+    }
+
 
     // ✅ Daily goal
     suspend fun getDailyGoal(default: Int = 50): Int {

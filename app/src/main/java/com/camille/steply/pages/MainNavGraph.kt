@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
@@ -13,13 +15,6 @@ import androidx.navigation.compose.rememberNavController
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.HomeVmFactory
 import com.camille.steply.viewmodel.WorkoutType
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import com.camille.steply.pages.Profile
-
 
 @Composable
 fun MainNavGraph() {
@@ -30,7 +25,7 @@ fun MainNavGraph() {
         factory = HomeVmFactory(context.applicationContext as Application)
     )
 
-    // ✅ Detect emulator once
+    // ✅ Detect emulator once (kept, in case you re-enable simulator later)
     val isEmulator = remember {
         val fp = android.os.Build.FINGERPRINT.lowercase()
         val model = android.os.Build.MODEL.lowercase()
@@ -44,20 +39,15 @@ fun MainNavGraph() {
                 device.contains("generic")
     }
 
-    // ✅ Start simulator ONCE for the whole app (emulator only)
-//    DisposableEffect(Unit) {
-//        if (isEmulator) homeViewModel.startAccelerometerSimulation()
-//        onDispose {
-//            if (isEmulator) homeViewModel.stopAccelerometerSimulation()
-//        }
-//    }
-
-    // ✅ Start/stop the real foreground service based on stored toggle
-    val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)
-    LaunchedEffect(trackingEnabled, isEmulator) {
+    // ✅ Tracking ALWAYS ON for the whole app
+    // Start the foreground service once; never stop it.
+    LaunchedEffect(Unit) {
         if (!isEmulator) {
-            if (trackingEnabled) homeViewModel.startStepUpdates()
-            else homeViewModel.stopStepUpdates()
+            // Use whichever exists in your HomeViewModel:
+            // - prefer ensureTrackingRunning() if you added it
+            // - otherwise startStepUpdates()
+            homeViewModel.ensureTrackingRunning()
+            // homeViewModel.startStepUpdates()
         }
     }
 

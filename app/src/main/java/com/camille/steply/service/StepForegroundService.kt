@@ -239,6 +239,9 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- GOAL NOTIFICATION --------------------
 
     private suspend fun maybeNotifyGoal(todaySteps: Int) {
+        // ✅ Bell OFF => do not send goal notification
+        if (!store.isGoalNotificationEnabled()) return
+
         val goal = store.getDailyGoal(default = 50)
         if (goal <= 0) return
 
@@ -252,6 +255,7 @@ class StepForegroundService : Service(), SensorEventListener {
             nm.notify(GOAL_NOTIFY_ID, buildGoalReachedNotification(todaySteps, goal))
         }
     }
+
 
     // -------------------- NOTIFICATIONS --------------------
 

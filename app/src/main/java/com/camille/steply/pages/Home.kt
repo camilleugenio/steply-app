@@ -130,13 +130,21 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
     val inPreview = LocalInspectionMode.current
 
     val uiState by homeViewModel.uiState.collectAsState()
-    val trackingEnabled by homeViewModel.trackingEnabled.collectAsState(initial = false)
 
-    var localTrackingEnabled by rememberSaveable { mutableStateOf(false) }
+// ✅ bell = goal notification only
+    val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
 
-    LaunchedEffect(trackingEnabled) {
-        localTrackingEnabled = trackingEnabled
+// ✅ tracking always on
+    LaunchedEffect(Unit) {
+        if (!inPreview) homeViewModel.ensureTrackingRunning()
     }
+
+
+
+
+//    LaunchedEffect(trackingEnabled) {
+//        localTrackingEnabled = trackingEnabled
+//    }
 
 
     val isEmulator = remember {
@@ -167,13 +175,13 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 //    }
 
 
-    // ✅ If tracking enabled, ensure the service is running (device + emulator)
-    LaunchedEffect(trackingEnabled, inPreview) {
-        if (!inPreview) {
-            if (trackingEnabled) homeViewModel.startStepUpdates()
-            else homeViewModel.stopStepUpdates()
-        }
-    }
+//    // ✅ If tracking enabled, ensure the service is running (device + emulator)
+//    LaunchedEffect(trackingEnabled, inPreview) {
+//        if (!inPreview) {
+//            if (trackingEnabled) homeViewModel.startStepUpdates()
+//            else homeViewModel.stopStepUpdates()
+//        }
+//    }
 
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -273,12 +281,11 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
-                trackingEnabled = localTrackingEnabled,
-                trackingSwitchEnabled = !inPreview,
-                onToggleTracking = { enabled ->
-                    localTrackingEnabled = enabled
-                    homeViewModel.setTrackingEnabled(enabled) // <-- devi avere questa funzione nel VM
+                goalNotifEnabled = goalNotifEnabled,
+                onToggleGoalNotif = { enabled ->
+                    homeViewModel.setGoalNotificationEnabled(enabled)
                 },
+
                 onSettings = { },
                 onCalendar = { showCalendar = true },
 
@@ -349,12 +356,12 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 private fun TopBarLight(
     placeText: String,
     weatherText: String,
-    trackingEnabled: Boolean,
-    trackingSwitchEnabled: Boolean,
-    onToggleTracking: (Boolean) -> Unit,
+    goalNotifEnabled: Boolean,
+    onToggleGoalNotif: (Boolean) -> Unit,
     onCalendar: () -> Unit,
     onSettings: () -> Unit
 ) {
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -420,17 +427,16 @@ private fun TopBarLight(
                 }
 
                 IconToggleButton(
-                    checked = trackingEnabled,
-                    enabled = trackingSwitchEnabled,
-                    onCheckedChange = onToggleTracking
-
+                    checked = goalNotifEnabled,
+                    onCheckedChange = onToggleGoalNotif
                 ) {
                     Icon(
                         imageVector = Icons.Default.Notifications,
-                        contentDescription = null,
-                        tint = if (trackingEnabled) Accent else Color.Gray
+                        contentDescription = "Goal notifications",
+                        tint = if (goalNotifEnabled) Accent else Color.Gray
                     )
                 }
+
             }
         }
 
