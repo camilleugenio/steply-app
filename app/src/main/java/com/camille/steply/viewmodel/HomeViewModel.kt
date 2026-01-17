@@ -93,15 +93,26 @@ class HomeViewModel(
 
                 _uiState.update { state ->
                     val viewingToday = state.selectedDateIso == todayIso
+
+                    val newMap = state.stepsByDateIso.toMutableMap()
+                    newMap[todayIso] = steps
+
+                    val today = LocalDate.parse(state.currentDateIso)
+                    val last7 = (6 downTo 0).map { today.minusDays(it.toLong()).toString() }
+                    val newWeekly = last7.map { iso -> newMap[iso] ?: 0 }
+
                     state.copy(
                         steps = steps,
                         km = kmText,
                         kcal = kcalValue.toString(),
                         selectedSteps = if (viewingToday) steps else state.selectedSteps,
                         selectedKm = if (viewingToday) kmText else state.selectedKm,
-                        selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
+                        selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal,
+                        stepsByDateIso = newMap,
+                        weeklySteps = newWeekly
                     )
                 }
+                refreshStreak(todayIso, _uiState.value.dailyGoal)
             }
         }
     }

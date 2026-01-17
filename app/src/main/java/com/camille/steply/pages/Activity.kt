@@ -44,10 +44,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
@@ -94,6 +96,11 @@ fun ActivityScreen(
     val historyVm: WorkoutHistoryViewModel = viewModel()
     val historyState by historyVm.uiState.collectAsState()
     var showSkeleton by remember { mutableStateOf(false) }
+
+    val cfg = LocalConfiguration.current
+    val isSmall = cfg.screenWidthDp < 420
+    val sidePad = if (isSmall) 12.dp else 16.dp
+    val bottomPad = if (isSmall) 12.dp else 18.dp
 
     LaunchedEffect(Unit) {
         activityViewModel.events.collectLatest { event ->
@@ -157,7 +164,9 @@ fun ActivityScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 26.dp),
+                    .navigationBarsPadding()
+                    .padding(horizontal = sidePad)
+                    .padding(bottom = bottomPad),
                 contentAlignment = Alignment.Center
             ) {
                 BottomPillNavBar(
