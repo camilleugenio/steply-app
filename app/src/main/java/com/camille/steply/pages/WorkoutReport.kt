@@ -96,7 +96,7 @@ fun WorkoutReportScreen(
         return
     }
 
-    // ✅ Responsive knobs
+    // Responsive
     val config = LocalConfiguration.current
     val screenW = config.screenWidthDp
     val screenHdp = config.screenHeightDp
@@ -112,7 +112,6 @@ fun WorkoutReportScreen(
     val valueSize = if (isSmall) 20.sp else 22.sp
     val statGap = if (isSmall) 12.dp else 18.dp
 
-    // card max height ~40-45% schermo (con cap)
     val cardMaxH = minOf((screenHdp.dp * 0.45f), if (isSmall) 340.dp else 380.dp)
 
     val type = runCatching { WorkoutType.valueOf(snapshot.type) }.getOrElse { WorkoutType.WALK }
@@ -147,19 +146,16 @@ fun WorkoutReportScreen(
         sdf.format(Date(snapshot.startTimeMs)).replaceFirstChar { it.uppercase() }
     }
 
-    // punti mappa
     val start = snapshot.startPoint?.let { com.google.android.gms.maps.model.LatLng(it.lat, it.lon) }
     val end = snapshot.segments.lastOrNull()?.points?.lastOrNull()
         ?.let { com.google.android.gms.maps.model.LatLng(it.lat, it.lon) }
 
-    // tutti i punti convertiti in LatLng Google
     val allPtsG = remember(snapshot) {
         snapshot.segments
             .flatMap { it.points }
             .map { com.google.android.gms.maps.model.LatLng(it.lat, it.lon) }
     }
 
-    // bounds che include tutto il percorso
     val bounds = remember(allPtsG) {
         if (allPtsG.isNotEmpty()) {
             val b = com.google.android.gms.maps.model.LatLngBounds.Builder()
@@ -171,7 +167,7 @@ fun WorkoutReportScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // -------------------- MAP (full screen) --------------------
+        // -------------------- MAP --------------------
         if (bounds != null || start != null || end != null) {
 
             val cameraState = rememberCameraPositionState()
@@ -287,7 +283,7 @@ fun WorkoutReportScreen(
             )
         }
 
-        // -------------------- REPORT CARD (overlay) --------------------
+        // -------------------- REPORT CARD --------------------
         Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -301,7 +297,6 @@ fun WorkoutReportScreen(
         ) {
             Column(modifier = Modifier.padding(cardInnerPad)) {
 
-                // Header row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -357,7 +352,6 @@ fun WorkoutReportScreen(
 
                 Spacer(Modifier.height(if (isSmall) 14.dp else 24.dp))
 
-// ✅ 2x2 SEMPRE, anche su schermi piccoli
                 val cellGap = if (isSmall) 10.dp else 16.dp
                 val rowGap = if (isSmall) 12.dp else 18.dp
 
@@ -559,7 +553,6 @@ private fun rememberStartMarkerIconWithLabel(
                 native.drawText(label, textX, baseline, textPaint)
             }
         }
-
         BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
     }
 }

@@ -25,7 +25,6 @@ fun MainNavGraph() {
         factory = HomeVmFactory(context.applicationContext as Application)
     )
 
-    // ✅ Detect emulator once (kept, in case you re-enable simulator later)
     val isEmulator = remember {
         val fp = android.os.Build.FINGERPRINT.lowercase()
         val model = android.os.Build.MODEL.lowercase()
@@ -39,15 +38,9 @@ fun MainNavGraph() {
                 device.contains("generic")
     }
 
-    // ✅ Tracking ALWAYS ON for the whole app
-    // Start the foreground service once; never stop it.
     LaunchedEffect(Unit) {
         if (!isEmulator) {
-            // Use whichever exists in your HomeViewModel:
-            // - prefer ensureTrackingRunning() if you added it
-            // - otherwise startStepUpdates()
             homeViewModel.ensureTrackingRunning()
-            // homeViewModel.startStepUpdates()
         }
     }
 

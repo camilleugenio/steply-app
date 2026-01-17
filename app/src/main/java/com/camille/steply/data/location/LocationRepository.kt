@@ -32,7 +32,6 @@ class LocationRepository(
                         if (loc != null) {
                             cont.resume(LatLng(loc.latitude, loc.longitude))
                         } else {
-                            // Emulator / cold start fallback
                             fused.lastLocation
                                 .addOnSuccessListener { last ->
                                     if (last != null) cont.resume(LatLng(last.latitude, last.longitude))
@@ -73,48 +72,20 @@ class LocationRepository(
                     cont.resume(pickName(list?.firstOrNull()))
                 }
             } catch (io: IOException) {
-                // Network / backend issue: return a safe fallback
                 cont.resume("Unknown place")
             } catch (e: Exception) {
                 cont.resumeWithException(e)
             }
         }
 
-
-
-//    fun locationUpdates(
-//        intervalMs: Long = 1000L,
-//        minDistanceMeters: Float = 2f
-//    ): Flow<LatLng> = callbackFlow {
-//
-//        val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
-//            .setMinUpdateDistanceMeters(minDistanceMeters)
-//            .build()
-//
-//        val callback = object : LocationCallback() {
-//            override fun onLocationResult(result: LocationResult) {
-//                val loc = result.lastLocation ?: return
-//                trySend(LatLng(loc.latitude, loc.longitude))
-//            }
-//        }
-//
-//        try {
-//            fused.requestLocationUpdates(request, callback, context.mainLooper)
-//        } catch (se: SecurityException) {
-//            close(se)
-//        }
-//
-//        awaitClose { fused.removeLocationUpdates(callback) }
-//    }
-
     fun locationUpdates(
-        intervalMs: Long = 500L,          // ✅ più frequente
-        fastestMs: Long = 250L,           // ✅ permette update più rapidi se disponibili
-        minDistanceMeters: Float = 0f     // ✅ emulatore / route: non bloccare
+        intervalMs: Long = 500L,
+        fastestMs: Long = 250L,
+        minDistanceMeters: Float = 0f
     ): Flow<LatLng> = callbackFlow {
 
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, intervalMs)
-            .setMinUpdateIntervalMillis(fastestMs)      // ✅ IMPORTANTISSIMO per fluidità
+            .setMinUpdateIntervalMillis(fastestMs)
             .setMinUpdateDistanceMeters(minDistanceMeters)
             .build()
 
@@ -133,5 +104,4 @@ class LocationRepository(
 
         awaitClose { fused.removeLocationUpdates(callback) }
     }
-
 }

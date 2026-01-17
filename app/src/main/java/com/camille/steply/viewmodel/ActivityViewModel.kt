@@ -46,7 +46,6 @@ class ActivityViewModel : ViewModel() {
     private var countdownJob: Job? = null
 
     fun startCountdown(type: WorkoutType) {
-        // se clicchi due volte velocemente, resetta
         countdownJob?.cancel()
 
         countdownJob = viewModelScope.launch {

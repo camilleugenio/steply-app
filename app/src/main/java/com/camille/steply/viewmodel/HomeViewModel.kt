@@ -35,7 +35,7 @@ data class HomeUiState(
     val currentDate: String = "",
     val currentDayname: String = "",
     val currentDateIso: String = "",
-    val selectedDateIso: String = "",      // giorno selezionato nella dashboard
+    val selectedDateIso: String = "",
     val selectedSteps: Int = 0,
     val selectedKm: String = "0.00",
     val selectedKcal: String = "0",
@@ -48,7 +48,6 @@ data class HomeUiState(
     val meteoTempC: String = "--",
     val meteoDesc: String = "-",
     val stepsByDateIso: Map<String, Int> = emptyMap()
-
 )
 
 class HomeViewModel(
@@ -63,8 +62,6 @@ class HomeViewModel(
     private val sensor = StepSensor(appContext)
     private var listening = false
 
-
-    // ✅ Bell toggle (goal notification only)
     val goalNotificationEnabled = store.goalNotificationEnabledFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
@@ -122,17 +119,14 @@ class HomeViewModel(
         return locationRepository.getCurrentLatLng()
     }
 
-    // ✅ Ensure tracking is running (foreground service)
     fun ensureTrackingRunning() {
         StepForegroundService.start(appContext)
         _uiState.update { it.copy(isTracking = true) }
     }
 
-    // ✅ Bell setter: only affects goal notification
     fun setGoalNotificationEnabled(enabled: Boolean) {
         viewModelScope.launch { store.setGoalNotificationEnabled(enabled) }
     }
-
 
 
     // -------------------- LOCATION --------------------
@@ -205,7 +199,6 @@ class HomeViewModel(
     // -------------------- Kcal --------------------
 
     private fun kmToKcal(km: Double, weightKg: Double = 65.0): Int {
-        // ~0.75 kcal per kg per km (walking)
         return (weightKg * km * 0.75).roundToInt()
     }
 
@@ -220,7 +213,7 @@ class HomeViewModel(
     private fun refreshWeeklySteps(todayIso: String) {
         viewModelScope.launch {
             val today = LocalDate.parse(todayIso)
-            val last7 = (6 downTo 0).map { today.minusDays(it.toLong()).toString() } // ISO strings
+            val last7 = (6 downTo 0).map { today.minusDays(it.toLong()).toString() }
 
             val values = last7.map { iso ->
                 store.getStepsForDateIso(iso)
@@ -264,12 +257,9 @@ class HomeViewModel(
                 val viewingToday = state.selectedDateIso == LocalDate.now().toString()
 
                 state.copy(
-                    // ✅ riempi subito anche i valori "live" (così il cerchio non parte da 0)
                     steps = if (viewingToday) steps else state.steps,
                     km = if (viewingToday) kmText else state.km,
                     kcal = if (viewingToday) kcalValue.toString() else state.kcal,
-
-                    // ✅ e sempre i valori della card (selected)
                     selectedSteps = steps,
                     selectedKm = kmText,
                     selectedKcal = kcalValue.toString()
@@ -294,13 +284,9 @@ class HomeViewModel(
             _uiState.update {
                 it.copy(
                     selectedDateIso = dateIso,
-                    // aggiorno anche ciò che mostrerai nella card in alto
                     selectedSteps = steps,
                     selectedKm = kmText,
                     selectedKcal = kcalValue.toString(),
-
-                    // e aggiorno l’etichetta data/weekday MOSTRATA nella card
-                    // (ma ATTENZIONE: non tocco currentDateIso => streak invariata)
                     currentDate = d.format(dateFormatter),
                     currentDayname = d.format(dayFormatter),
                     )
@@ -325,15 +311,12 @@ class HomeViewModel(
 
             val today = LocalDate.parse(todayIso)
 
-            // Leggo i passi di oggi dallo storico
             val todaySteps = store.getStepsForDateIso(todayIso)
 
-            // ✅ Se oggi non hai ancora raggiunto il goal, la streak “corrente”
-            // è quella che stai mantenendo da ieri.
             val startOffset = if (todaySteps >= dailyGoal) 0 else 1
 
             var streak = 0
-            // limite di sicurezza
+
             for (i in startOffset until 365) {
                 val dIso = today.minusDays(i.toLong()).toString()
                 val steps = store.getStepsForDateIso(dIso)
@@ -347,8 +330,5 @@ class HomeViewModel(
     }
     override fun onCleared() {
         super.onCleared()
-        // ✅ Don't stop the foreground service here (must be 24/7)
     }
-
-
 }

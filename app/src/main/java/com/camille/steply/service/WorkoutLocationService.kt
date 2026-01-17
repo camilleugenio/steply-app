@@ -25,8 +25,6 @@ class WorkoutLocationService : Service() {
     companion object {
         const val ACTION_START = "com.camille.steply.service.WorkoutLocationService.START"
         const val ACTION_STOP = "com.camille.steply.service.WorkoutLocationService.STOP"
-
-        // Flow globale: il ViewModel lo colleziona
         val locations = MutableSharedFlow<LatLng>(extraBufferCapacity = 128)
 
         private const val CHANNEL_ID = "workout_location"
@@ -71,7 +69,6 @@ class WorkoutLocationService : Service() {
         createChannelIfNeeded()
         startForeground(NOTIF_ID, buildNotification())
 
-        // più fluido + meglio con route emulator
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 500L)
             .setMinUpdateIntervalMillis(250L)
             .setMinUpdateDistanceMeters(0f)

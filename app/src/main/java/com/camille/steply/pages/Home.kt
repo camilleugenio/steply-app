@@ -1,7 +1,6 @@
 package com.camille.steply.pages
 
 import android.Manifest
-import android.app.Application
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -18,7 +17,6 @@ import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -26,7 +24,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
@@ -36,7 +33,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,29 +46,25 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.compose.ui.platform.LocalConfiguration // ✅ IMPORTANT: per isSmall
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow // ✅ per ellipsis
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.camille.steply.R
 import com.camille.steply.viewmodel.HomeViewModel
 import java.time.LocalDate
-import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -103,15 +95,15 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 
     val uiState by homeViewModel.uiState.collectAsState()
 
-    // ✅ bell = goal notification only
+    // bell = goal notification
     val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
 
-    // ✅ Responsive knobs (QUI è dove va sidePad)
+    // Responsive
     val cfg = LocalConfiguration.current
     val isSmall = cfg.screenWidthDp < 420
     val sidePad = if (isSmall) 12.dp else 16.dp
 
-    // ✅ tracking always on
+    // tracking always on
     LaunchedEffect(Unit) {
         if (!inPreview) homeViewModel.ensureTrackingRunning()
     }
@@ -122,7 +114,7 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
         if (granted) homeViewModel.refreshPlaceThrottled()
     }
 
-    // ✅ Refresh location EVERY TIME resumed
+    // Refresh location everytime resumed
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -160,7 +152,6 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
     Scaffold(
         containerColor = Bg,
         bottomBar = {
-            // ✅ navbar con padding laterale + navigationBarsPadding
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,7 +182,7 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth() // ✅ niente width fissa
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -234,12 +225,10 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 
             Spacer(Modifier.height(12.dp))
 
-            // ✅ STREAK responsive
             StreakCard(streakDays = uiState.streakDays)
 
             Spacer(Modifier.height(30.dp))
 
-            // ✅ WEEKLY responsive (giorni non si schiacciano)
             WeeklyStepsLight(
                 currentDateIso = uiState.currentDateIso,
                 selectedDateIso = uiState.selectedDateIso,
@@ -293,7 +282,7 @@ private fun TopBarLight(
                 withStyle(style = SpanStyle(color = TextSecondary)) { append(weatherText) }
             },
             fontSize = 14.sp,
-            maxLines = 1, // ✅ non rompe layout
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
 
@@ -395,7 +384,6 @@ private fun StepsMainCard(
                     .padding(6.dp)
                     .size(40.dp)
             ) {
-                // Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = TextSecondary)
             }
 
             Column(
@@ -507,7 +495,7 @@ private fun InfoMini(value: String, label: String) {
     }
 }
 
-// -------------------- STREAK (responsive) --------------------
+// -------------------- STREAK --------------------
 @Composable
 fun StreakCard(streakDays: Int) {
     val cfg = LocalConfiguration.current
@@ -566,38 +554,38 @@ fun StreakCard(streakDays: Int) {
                     ) {
                         val hasStreak = streakDays >= 1
 
-                        AnimatedContent(
-                            targetState = hasStreak,
-                            transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-                            label = "streakMessage"
-                        ) { ok ->
-                            Text(
-                                text = buildAnnotatedString {
-                                    if (ok) {
-                                        append("Keep your ")
-                                        withStyle(
-                                            SpanStyle(
-                                                color = Accent,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        ) { append("Perfect Streak") }
-                                        append(" \nby walking every day!")
-                                    } else {
-                                        withStyle(
-                                            SpanStyle(
-                                                color = Accent,
-                                                fontWeight = FontWeight.SemiBold
-                                            )
-                                        ) { append("You Can Do It!") }
-                                        append(" \nStart your streak now.")
-                                    }
-                                },
-                                fontSize = msgSize,
-                                color = Color(0xFF444444)
-                            )
+                        Box(modifier = Modifier.weight(1f)) {
+                            AnimatedContent(
+                                targetState = hasStreak,
+                                transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
+                                label = "streakMessage"
+                            ) { ok ->
+                                Text(
+                                    text = buildAnnotatedString {
+                                        if (ok) {
+                                            append("Keep your ")
+                                            withStyle(SpanStyle(color = Accent, fontWeight = FontWeight.SemiBold)) {
+                                                append("Perfect Streak")
+                                            }
+                                            append(" \nby walking every day!")
+                                        } else {
+                                            withStyle(SpanStyle(color = Accent, fontWeight = FontWeight.SemiBold)) {
+                                                append("You Can Do It!")
+                                            }
+                                            append(" \nStart your streak now.")
+                                        }
+                                    },
+                                    fontSize = msgSize,
+                                    color = Color(0xFF444444)
+                                )
+                            }
                         }
-                        Spacer(Modifier.width(if (isSmall) 45.dp else 10.dp))
-                        Text(text = "🔥", fontSize = 32.sp)
+
+                        Text(
+                            text = "🔥",
+                            fontSize = 36.sp,
+                            modifier = Modifier.padding(start = 12.dp)
+                        )
                     }
                 }
             }
@@ -605,7 +593,7 @@ fun StreakCard(streakDays: Int) {
     }
 }
 
-// -------------------- DASHBOARD (responsive) --------------------
+// -------------------- DASHBOARD --------------------
 @Composable
 private fun WeeklyStepsLight(
     currentDateIso: String,
@@ -634,7 +622,7 @@ private fun WeeklyStepsLight(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 0.dp) // già gestito da Home
+            .padding(horizontal = 0.dp)
     ) {
         val barWidth = if (isSmall) 9.dp else 10.dp
         val dayFont = if (isSmall) 13.sp else 15.sp
@@ -712,7 +700,8 @@ private fun WeeklyStepsLight(
     }
 }
 
-// -------------------- NAVBAR (responsive) --------------------
+// -------------------- NAVBAR --------------------
+
 @Composable
 fun BottomPillNavBar(
     selectedIndex: Int,
@@ -795,7 +784,7 @@ fun BottomPillNavBar(
     }
 }
 
-// -------------------- CALENDAR / POPUP (identico al tuo, lasciato invariato) --------------------
+// -------------------- CALENDAR --------------------
 
 @Composable
 fun BottomSlidePopup(
@@ -861,11 +850,6 @@ fun BottomSlidePopup(
     }
 }
 
-// ---- TUTTO il resto del tuo calendario è uguale (StepsCalendarSheetContent, MonthGrid, ecc.)
-// Incollalo qui sotto senza modifiche ----
-
-
-
 @Composable
 private fun StepsCalendarSheetContent(
     onClose: () -> Unit,
@@ -880,7 +864,7 @@ private fun StepsCalendarSheetContent(
             .navigationBarsPadding()
             .padding(bottom = 18.dp)
     ) {
-        // Header: X + titolo
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -922,7 +906,6 @@ private fun StepsCalendarSheetContent(
         val nowYm = remember { java.time.YearMonth.now() }
         val months = remember(nowYm) { (0 until 12).map { nowYm.minusMonths(it.toLong()) } }
 
-        // overlay popup sopra la lista (come screenshot)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -943,21 +926,19 @@ private fun StepsCalendarSheetContent(
                         stepsByDateIso = stepsByDateIso,
                         selectedDate = selectedDate,
                         onSelectDate = { date ->
-                            // toggle: se clicco lo stesso giorno, deseleziona
                             selectedDate = if (selectedDate == date) null else date
                         }
                     )
                 }
             }
 
-            // Popup (se c’è una selezione) — SOLO FADE (semplice)
             val popupAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-            var popupDate by remember { mutableStateOf<java.time.LocalDate?>(null) } // cache per exit
+            var popupDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
 
             LaunchedEffect(selectedDate) {
                 if (selectedDate != null) {
                     popupDate = selectedDate
-                    popupAlpha.animateTo(1f, tween(140)) // niente snapTo
+                    popupAlpha.animateTo(1f, tween(140))
                 } else {
                     popupAlpha.animateTo(0f, tween(120))
                     popupDate = null
@@ -1131,17 +1112,15 @@ private fun DayCellColored(
     val isFuture = date.isAfter(today)
     val isZeroPast = !isFuture && steps == 0
     val textColor = when {
-        isFuture -> Color(0xFF8E8E93)   // futuri grigi
-        else -> Color.Black            // tutti i giorni passati + oggi
+        isFuture -> Color(0xFF8E8E93)
+        else -> Color.Black
     }
-
 
     val baseColor = if (isFuture || isZeroPast) {
         Color(0xFFF2F2F4)
     } else {
         progressColorForSteps(steps, dailyGoal)
     }
-
 
     val brush = if (isFuture) {
         Brush.verticalGradient(listOf(baseColor, baseColor))
@@ -1210,7 +1189,6 @@ private fun SelectedDayPopup(
         shadowElevation = 18.dp
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
-            // X a destra
             IconButton(
                 onClick = onClose,
                 modifier = Modifier
@@ -1231,7 +1209,6 @@ private fun SelectedDayPopup(
                     .padding(horizontal = 14.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Ring + mese sotto
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -1243,7 +1220,6 @@ private fun SelectedDayPopup(
                             val stroke = 6.dp.toPx()
                             val inset = stroke / 2f
 
-                            // background
                             drawArc(
                                 color = Color(0xFFE6E6EA),
                                 startAngle = 0f,
@@ -1253,7 +1229,6 @@ private fun SelectedDayPopup(
                                 size = Size(size.width - stroke, size.height - stroke),
                                 style = Stroke(width = stroke, cap = StrokeCap.Round)
                             )
-                            // progress
                             drawArc(
                                 color = ringColor,
                                 startAngle = -90f,
@@ -1285,11 +1260,10 @@ private fun SelectedDayPopup(
 
                 Spacer(Modifier.width(16.dp))
 
-                // Stats orizzontali (più grandi, senza emoji)
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 44.dp), // spazio per la X
+                        .padding(end = 44.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1339,7 +1313,6 @@ private fun FadeSwapPopupContent(
     var initialized by remember { mutableStateOf(false) }
 
     LaunchedEffect(date, steps, dailyGoal) {
-        // ✅ prima apertura: NON fare fade-out/fade-in, mostra subito
         if (!initialized) {
             initialized = true
             shownDate = date
@@ -1348,7 +1321,6 @@ private fun FadeSwapPopupContent(
             return@LaunchedEffect
         }
 
-        // ✅ cambio giorno: crossfade semplice
         alpha.animateTo(0f, tween(80))
         shownDate = date
         shownSteps = steps
@@ -1366,12 +1338,8 @@ private fun FadeSwapPopupContent(
 }
 
 
-
-
-
-
-
 // -------------------- COLOR --------------------
+
 private fun progressColorForSteps(steps: Int, dailyGoal: Int): Color {
     if (dailyGoal <= 0) return Color(0xFFE6E6EA)
 

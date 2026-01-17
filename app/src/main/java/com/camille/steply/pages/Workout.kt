@@ -4,7 +4,6 @@ package com.camille.steply.pages
 import android.app.Application
 import android.content.Intent
 import android.graphics.Typeface
-import android.location.Location
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -79,7 +78,6 @@ fun WorkoutScreen(
     var elapsedSec by remember { mutableStateOf(0) }
     var initialLatLng by remember { mutableStateOf<LatLng?>(null) }
 
-    // ✅ collect kcal from server loop (new)
     val kcal by workoutVm.kcal.collectAsState()
 
     val historyVm: WorkoutHistoryViewModel = viewModel()
@@ -89,7 +87,6 @@ fun WorkoutScreen(
             .onSuccess { p -> initialLatLng = LatLng(p.lat, p.lon) }
     }
 
-    // ✅ timer semplice (as you had)
     LaunchedEffect(paused) {
         if (!paused) {
             while (true) {
@@ -101,17 +98,14 @@ fun WorkoutScreen(
 
     LaunchedEffect(Unit) {
         Log.d("KCAL_UI", "WorkoutScreen LaunchedEffect(Unit) fired")
-        // avvia foreground service
         val i = Intent(context, WorkoutLocationService::class.java).apply {
             action = WorkoutLocationService.ACTION_START
         }
         ContextCompat.startForegroundService(context, i)
 
-        // VM ascolta i punti dal service
         workoutVm.ensureLocationUpdates()
         workoutVm.start()
 
-        // ✅ start server session + periodic kcal updates (new)
         val activity = when (type) {
             WorkoutType.RUN -> "run"
             WorkoutType.WALK -> "walk"
@@ -162,7 +156,7 @@ fun WorkoutScreen(
             .padding(horizontal = 16.dp, vertical = 16.dp)
     ) {
 
-        // -------------------- WORKOUT TOP BAR --------------------
+        // TOP BAR
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -170,7 +164,6 @@ fun WorkoutScreen(
                 .padding(start = 3.dp, end = 3.dp, top = 20.dp, bottom = 22.dp)
         ) {
 
-            // ---- TITOLO ----
             Column(
                 modifier = Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -199,7 +192,6 @@ fun WorkoutScreen(
                 }
             }
 
-            // ✅ PILL SINISTRA: END (solo quando in pausa)
             if (paused) {
                 Surface(
                     modifier = Modifier
@@ -219,11 +211,10 @@ fun WorkoutScreen(
 
                                 workoutVm.stopKcalLoop()
 
-                                // ✅ crea snapshot per report
                                 val st = mapState
                                 val snapshot = WorkoutReportSnapshot(
                                     type = type.name,
-                                    startTimeMs = System.currentTimeMillis() - (elapsedSec * 1000L), // start stimato
+                                    startTimeMs = System.currentTimeMillis() - (elapsedSec * 1000L),
                                     durationSec = elapsedSec,
                                     distanceMeters = st.distanceMeters,
                                     kcal = kcal.roundToInt(),
@@ -244,7 +235,7 @@ fun WorkoutScreen(
 
                                 navController.navigate(Routes.WORKOUT_REPORT) {
                                     launchSingleTop = true
-                                    popUpTo(Routes.ACTIVITY) { inclusive = false } // ✅ elimina Workout dallo stack
+                                    popUpTo(Routes.ACTIVITY) { inclusive = false }
                                 }
 
                                 historyVm.addWorkout(snapshot)
@@ -272,7 +263,6 @@ fun WorkoutScreen(
                 }
             }
 
-            // ✅ PILL DESTRA: PAUSE / RESUME
             Surface(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -308,7 +298,7 @@ fun WorkoutScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        // -------- MAP CARD (Google Map) --------
+        // MAP CARD
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -398,7 +388,7 @@ fun WorkoutScreen(
 
         Spacer(Modifier.height(14.dp))
 
-        // -------- STATS CARD --------
+        // STATS CARD
         Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(26.dp),
@@ -435,7 +425,7 @@ fun WorkoutScreen(
     }
 }
 
-// -------------------- STATISTICHE SOTTO--------------------
+// -------------------- STATISTICHE --------------------
 
 @Composable
 private fun StatMini(
@@ -573,7 +563,6 @@ private fun rememberStartMarkerIconWithLabel(
                 native.drawText(label, textX, baseline, textPaint)
             }
         }
-
         BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
     }
 }

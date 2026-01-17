@@ -6,10 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.camille.steply.data.history.WorkoutHistoryRepository
 import com.camille.steply.pages.WorkoutReportSnapshot
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class WorkoutHistoryUiState(

@@ -239,7 +239,7 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- GOAL NOTIFICATION --------------------
 
     private suspend fun maybeNotifyGoal(todaySteps: Int) {
-        // ✅ Bell OFF => do not send goal notification
+        // Bell OFF => do not send goal notification
         if (!store.isGoalNotificationEnabled()) return
 
         val goal = store.getDailyGoal(default = 50)
@@ -270,7 +270,7 @@ class StepForegroundService : Service(), SensorEventListener {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // replace later
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Steply")
             .setContentText("Steps: $steps")
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -286,7 +286,7 @@ class StepForegroundService : Service(), SensorEventListener {
     private fun buildGoalReachedNotification(steps: Int, goal: Int): Notification {
         val openAppIntent = PendingIntent.getActivity(
             this,
-            1, // different request code from foreground notification
+            1,
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
@@ -294,7 +294,7 @@ class StepForegroundService : Service(), SensorEventListener {
         )
 
         return NotificationCompat.Builder(this, GOAL_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // replace later
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("Goal reached! 🎉")
             .setContentText("You hit $goal steps.")
             .setShowWhen(false)

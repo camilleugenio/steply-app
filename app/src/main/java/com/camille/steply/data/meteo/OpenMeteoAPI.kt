@@ -59,38 +59,22 @@ object OpenMeteoApi {
     }
 }
 
-// ---------- Weather code → text ----------
-fun openMeteoCodeToText(code: Int): String = when (code) {
-    0 -> "Clear"
-    1, 2, 3 -> "Cloudy"
-    45, 48 -> "Fog"
-    51, 53, 55 -> "Drizzle"
-    56, 57 -> "Freezing drizzle"
-    61, 63, 65 -> "Rain"
-    66, 67 -> "Freezing rain"
-    71, 73, 75 -> "Snow"
-    77 -> "Snow grains"
-    80, 81, 82 -> "Showers"
-    85, 86 -> "Snow showers"
-    95 -> "Thunderstorm"
-    96, 99 -> "Thunderstorm + hail"
-    else -> "Unknown"
-}
+// ---------- Weather ----------
 
 fun openMeteoCodeToEmoji(code: Int): String = when (code) {
     0 -> "☀️"
-    1, 2, 3 -> "⛅️"          // variabile / nuvoloso
+    1, 2, 3 -> "⛅️"          // nuvoloso
     45, 48 -> "🌫️"           // nebbia
     51, 53, 55 -> "🌦️"       // pioviggine
     56, 57 -> "🧊🌦️"         // pioviggine gelata
     61, 63, 65 -> "🌧️"       // pioggia
     66, 67 -> "🧊🌧️"         // pioggia gelata
     71, 73, 75 -> "❄️"       // neve
-    77 -> "❄️"               // granelli di neve
+    77 -> "❄️"               // neve
     80, 81, 82 -> "🌧️"       // rovesci
     85, 86 -> "🌨️"           // rovesci di neve
     95 -> "⛈️"               // temporale
-    96, 99 -> "⛈️🧊"          // temporale + grandine
+    96, 99 -> "⛈️🧊"         // temporale + grandine
     else -> "❓"
 }
 

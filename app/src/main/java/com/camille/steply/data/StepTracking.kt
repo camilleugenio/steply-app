@@ -63,15 +63,9 @@ class StepDataStore(private val context: Context) {
     private val KEY_BASE_STEPS = longPreferencesKey("base_steps_from_boot")
     private val KEY_SIM_STEPS_TODAY = intPreferencesKey("sim_steps_today")
     private val KEY_SIM_DAY_START = longPreferencesKey("sim_day_start")
-
-    // ✅ NEW: persisted toggle for "always-on tracking"
     private val KEY_TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
-
-    // ✅ NEW: daily goal + "goal notified day" (ISO string)
     private val KEY_DAILY_GOAL = intPreferencesKey("daily_goal")
     private val KEY_GOAL_NOTIFIED_ISO = stringPreferencesKey("goal_notified_iso")
-
-    // ✅ NEW: goal notification toggle (bell). Default = true
     private val KEY_GOAL_NOTIFICATION_ENABLED = booleanPreferencesKey("goal_notification_enabled")
 
 
@@ -96,7 +90,6 @@ class StepDataStore(private val context: Context) {
         }
     }
 
-    // ✅ NEW: tracking enabled flag (for UI toggle + boot restart)
     suspend fun setTrackingEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_TRACKING_ENABLED] = enabled }
     }
@@ -108,7 +101,7 @@ class StepDataStore(private val context: Context) {
     fun trackingEnabledFlow(): Flow<Boolean> {
         return dataStore.data.map { prefs -> prefs[KEY_TRACKING_ENABLED] ?: false }
     }
-    // ✅ Goal notification enabled (bell toggle)
+
     suspend fun setGoalNotificationEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] = enabled }
     }
@@ -121,8 +114,7 @@ class StepDataStore(private val context: Context) {
         return dataStore.data.map { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] ?: true }
     }
 
-
-    // ✅ Daily goal
+    // Daily goal
     suspend fun getDailyGoal(default: Int = 50): Int {
         return dataStore.data.first()[KEY_DAILY_GOAL] ?: default
     }
@@ -131,7 +123,7 @@ class StepDataStore(private val context: Context) {
         dataStore.edit { prefs -> prefs[KEY_DAILY_GOAL] = value }
     }
 
-    // ✅ Goal notification (one-shot per day)
+    // Goal notification (one-shot per day)
     suspend fun getGoalNotifiedIso(): String? {
         return dataStore.data.first()[KEY_GOAL_NOTIFIED_ISO]
     }
@@ -175,7 +167,6 @@ class StepDataStore(private val context: Context) {
         }
     }
 
-    // ✅ NEW: Flow for live UI updates
     fun stepsForDateIsoFlow(iso: String): Flow<Int> {
         return dataStore.data.map { prefs -> prefs[dayKeyIso(iso)] ?: 0 }
     }
@@ -242,9 +233,6 @@ class StepSensor(context: Context) : SensorEventListener {
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
-    /**
-     * Lettura singola (usata dal Worker a mezzanotte)
-     */
     suspend fun readOnce(timeoutMs: Long = 1500L): Long {
         val sensor = stepCounter ?: return 0L
 

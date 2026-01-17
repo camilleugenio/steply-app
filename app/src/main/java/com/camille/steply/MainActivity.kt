@@ -22,10 +22,8 @@ class MainActivity : ComponentActivity() {
             requestPostNotificationsIfNeeded()
         }
 
-    // Launcher for POST_NOTIFICATIONS
     private val postNotificationsLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
-            // Done. You can react to the result if needed.
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,22 +45,21 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestActivityRecognitionThenNotifications() {
-        // 1) Ask ACTIVITY_RECOGNITION first (Android 10+)
+        // Ask ACTIVITY_RECOGNITION first
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val p = Manifest.permission.ACTIVITY_RECOGNITION
             val granted = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
             if (!granted) {
                 activityRecognitionLauncher.launch(p)
-                return // IMPORTANT: wait for callback before continuing
+                return
             }
         }
-
         // If already granted (or not needed), go directly to notifications
         requestPostNotificationsIfNeeded()
     }
 
     private fun requestPostNotificationsIfNeeded() {
-        // 2) Ask POST_NOTIFICATIONS (Android 13+)
+        // Ask POST_NOTIFICATIONS
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val p = Manifest.permission.POST_NOTIFICATIONS
             val granted = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED

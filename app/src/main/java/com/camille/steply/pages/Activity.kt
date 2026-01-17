@@ -59,7 +59,6 @@ import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.WorkoutHistoryViewModel
 import com.camille.steply.viewmodel.WorkoutType
 import com.camille.steply.viewmodel.workoutColor
-import com.camille.steply.pages.WorkoutReportSnapshot
 import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.collectLatest
@@ -73,9 +72,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.graphics.Brush
 
@@ -125,7 +121,6 @@ fun ActivityScreen(
         }
     }
 
-    // SE COUNTDOWN ATTIVO: SPARISCE TUTTO E MOSTRA SOLO QUESTO
     if (activityState.isCountingDown && activityState.countdownType != null) {
         CountdownFullScreen(
             number = activityState.secondsLeft,
@@ -135,7 +130,6 @@ fun ActivityScreen(
         return
     }
 
-// ✅ Se sto navigando: schermo neutro (così NON compare più “3”)
     if (navigating) {
         Box(
             modifier = Modifier
@@ -154,9 +148,6 @@ fun ActivityScreen(
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
-
-
-    // ---------------- UI NORMALE ----------------
 
     Scaffold(
         containerColor = Color(0xFFF4F1EC),
@@ -219,12 +210,10 @@ fun ActivityScreen(
 
                 Spacer(Modifier.height(8.dp))
 
-                // history / testo
                 when {
                     historyState.isLoading && showSkeleton -> { WorkoutHistorySkeletonList() }
 
                     historyState.isLoading && !showSkeleton -> {
-                        // niente: evita flash, lascia spazio “vuoto” o una riga minima
                         Spacer(Modifier.height(1.dp))
                     }
 
@@ -258,7 +247,7 @@ fun ActivityScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)   // IMPORTANTISSIMO: prende lo spazio sotto al meteo
+                                .weight(1f)
                         )
                     }
                 }
@@ -308,7 +297,6 @@ private fun ActivitiesTopBar(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // ---- + con popup ancorato ----
         Box(modifier = Modifier.align(Alignment.CenterEnd)) {
 
             Box(
@@ -331,7 +319,6 @@ private fun ActivitiesTopBar(
                 )
             }
 
-            // offset del popup (in PX) calcolato dai DP
             val popupOffset = with(LocalDensity.current) {
                 IntOffset(x = (-10).dp.roundToPx(), y = 60.dp.roundToPx())
             }
@@ -346,7 +333,7 @@ private fun ActivitiesTopBar(
                     Box(
                         modifier = Modifier.graphicsLayer(
                             alpha = alpha.value,
-                            translationY = popupAnimOffsetY.value // questo è px float, ok
+                            translationY = popupAnimOffsetY.value
                         )
                             .width(180.dp),
                     ) {
@@ -461,7 +448,6 @@ private fun ActivityWeatherHeader(
         contentAlignment = Alignment.Center
     ) {
         if (loading) {
-            // placeholder
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -489,7 +475,6 @@ private fun ActivityWeatherHeader(
                 }
             }
         } else {
-            // ✅ UI reale meteo (uguale alla tua)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -527,7 +512,7 @@ private fun CountdownFullScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF4F1EC)), // ✅ sfondo fisso
+            .background(Color(0xFFF4F1EC)),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -535,14 +520,14 @@ private fun CountdownFullScreen(
                 text = number.toString(),
                 fontSize = 120.sp,
                 fontWeight = FontWeight.Bold,
-                color = color // ✅ colore attività SOLO sul numero
+                color = color
             )
             Spacer(Modifier.height(10.dp))
             Text(
                 text = label,
                 fontSize = 44.sp,
                 fontWeight = FontWeight.Medium,
-                color = color.copy(alpha = 0.7f) // ✅ stesso colore, più soft
+                color = color.copy(alpha = 0.7f)
             )
         }
     }
@@ -568,7 +553,6 @@ private fun ActivityHistorySection(
 
     Column(modifier = modifier) {
 
-        // ✅ mese fisso (NON scrolla)
         if (currentMonthKey.isNotBlank()) {
             Text(
                 text = currentMonthKey,
@@ -581,7 +565,6 @@ private fun ActivityHistorySection(
 
         Spacer(Modifier.height(2.dp))
 
-        // lista che scrolla con sfumature
         FadedEdgesLazyColumn(
             state = listState,
             topFadeHeight = 26.dp,
@@ -711,7 +694,6 @@ private fun WorkoutHistorySkeletonRow() {
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Icon placeholder
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -766,7 +748,6 @@ private fun FadedEdgesLazyColumn(
             content()
         }
 
-        // fade TOP
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -779,7 +760,6 @@ private fun FadedEdgesLazyColumn(
                 )
         )
 
-        // fade BOTTOM
         Box(
             modifier = Modifier
                 .fillMaxWidth()

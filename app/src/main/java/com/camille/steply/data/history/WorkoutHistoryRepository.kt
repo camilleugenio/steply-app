@@ -28,7 +28,7 @@ class WorkoutHistoryRepository(private val context: Context) {
             val raw = prefs[KEY] ?: "[]"
             runCatching { json.decodeFromString<List<WorkoutReportSnapshot>>(raw) }
                 .getOrElse { emptyList() }
-                .sortedByDescending { it.startTimeMs } // nuovi in alto
+                .sortedByDescending { it.startTimeMs }
         }
 
     suspend fun add(snapshot: WorkoutReportSnapshot) {
