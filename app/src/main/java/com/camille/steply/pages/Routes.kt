@@ -10,4 +10,7 @@ object Routes {
     const val REGISTRATION = "registration"
 
     const val LOGIN = "login"
+
+    const val WORKOUT_REPORT_SNAPSHOT = "workout_report_snapshot"
+    const val FROM_HISTORY = "from_history"
 }

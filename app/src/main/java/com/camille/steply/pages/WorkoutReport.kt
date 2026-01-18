@@ -42,6 +42,28 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import android.net.Uri
+import android.Manifest
+import androidx.compose.ui.draw.shadow
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.border
+import androidx.compose.ui.layout.ContentScale
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
+import com.camille.steply.viewmodel.WorkoutHistoryViewModel
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.material.icons.filled.Refresh
 
 // -------------------- SNAPSHOT (Parcelable) --------------------
 
@@ -67,10 +89,9 @@ data class WorkoutReportSnapshot(
     val meteoEmoji: String,
     val meteoTempC: String,
     val startPoint: LatLngP?,
-    val segments: List<TrackSegmentP>
+    val segments: List<TrackSegmentP>,
+    val photoUri: String? = null
 ) : Parcelable
-
-private const val SNAPSHOT_KEY = "workout_report_snapshot"
 
 // -------------------- SCREEN --------------------
 
@@ -81,7 +102,14 @@ fun WorkoutReportScreen(
     val snapshot = remember {
         navController.previousBackStackEntry
             ?.savedStateHandle
-            ?.get<WorkoutReportSnapshot>(SNAPSHOT_KEY)
+            ?.get<WorkoutReportSnapshot>(Routes.WORKOUT_REPORT_SNAPSHOT)
+    }
+
+    val fromHistory = remember {
+        navController.previousBackStackEntry
+            ?.savedStateHandle
+            ?.get<Boolean>(Routes.FROM_HISTORY)
+            ?: false
     }
 
     if (snapshot == null) {
@@ -94,6 +122,67 @@ fun WorkoutReportScreen(
             Text("Report not available", color = Color.Black)
         }
         return
+    }
+
+    var workoutPhotoUri by rememberSaveable(snapshot.startTimeMs) {
+        mutableStateOf(snapshot.photoUri)
+    }
+
+    LaunchedEffect(snapshot.photoUri) {
+        if (workoutPhotoUri != snapshot.photoUri) {
+            workoutPhotoUri = snapshot.photoUri
+        }
+    }
+
+    val showPolaroid = if (fromHistory) workoutPhotoUri != null else true
+    val canTakePhoto = !fromHistory
+
+    val context = LocalContext.current
+
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var showPhotoPreview by remember { mutableStateOf(false) }
+
+    // apre la fotocamera e salva nella Uri
+    val historyVm: WorkoutHistoryViewModel = viewModel()
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success) {
+            workoutPhotoUri = pendingCameraUri?.toString()
+
+            // salva solo se è un report appena finito
+            if (!fromHistory) {
+                historyVm.updatePhoto(snapshot.startTimeMs, workoutPhotoUri)
+            }
+        } else {
+            pendingCameraUri = null
+        }
+    }
+
+    val requestCameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val uri = createImageUri(context)
+            pendingCameraUri = uri
+            takePictureLauncher.launch(uri)
+        }
+    }
+
+    val launchCamera: () -> Unit = {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (hasPermission) {
+            val uri = createImageUri(context)
+            pendingCameraUri = uri
+            takePictureLauncher.launch(uri)
+        } else {
+            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
     }
 
     // Responsive
@@ -163,6 +252,10 @@ fun WorkoutReportScreen(
             b.build()
         } else null
     }
+
+    var cardHeightPx by remember { mutableIntStateOf(0) }
+    val density = LocalDensity.current
+    val cardHeightDp = with(density) { cardHeightPx.toDp() }
 
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -290,7 +383,8 @@ fun WorkoutReportScreen(
                 .fillMaxWidth()
                 .navigationBarsPadding()
                 .padding(start = hPad, end = hPad, bottom = cardBottomPad)
-                .heightIn(max = cardMaxH),
+                .heightIn(max = cardMaxH)
+                .onSizeChanged { cardHeightPx = it.height },
             shape = RoundedCornerShape(cardCorner),
             color = Color.White,
             shadowElevation = 12.dp
@@ -400,6 +494,128 @@ fun WorkoutReportScreen(
                             value = "$avgSpeedText km/h",
                             isSmall = isSmall
                         )
+                    }
+                }
+            }
+        }
+
+        // -------------------- CAMERA --------------------
+        val polaroidSize = if (isSmall) 80.dp else 90.dp
+        val polaroidCorner = 12.dp
+        val gapAboveCard = 12.dp
+
+        if (showPolaroid) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .navigationBarsPadding()
+                    .padding(end = hPad, bottom = cardBottomPad)
+                    .offset(y = -(cardHeightDp + gapAboveCard))
+                    .size(polaroidSize)
+                    .zIndex(10f)
+                    .clip(RoundedCornerShape(polaroidCorner))
+                    .background(Color.White)
+                    .border(1.dp, Color(0xFFE6E6E6), RoundedCornerShape(polaroidCorner))
+                    .clickable(
+                        enabled = (workoutPhotoUri != null) || canTakePhoto
+                    ) {
+                        if (workoutPhotoUri != null) {
+                            showPhotoPreview = true
+                            return@clickable
+                        }
+
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+
+                        if (hasPermission) {
+                            val uri = createImageUri(context)
+                            pendingCameraUri = uri
+                            takePictureLauncher.launch(uri)
+                        } else {
+                            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                if (workoutPhotoUri == null) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = "Add workout photo",
+                        tint = Color(0xFF6B6B6B),
+                        modifier = Modifier.size(if (isSmall) 32.dp else 36.dp)
+                    )
+                } else {
+                    AsyncImage(
+                        model = workoutPhotoUri,
+                        contentDescription = "Workout photo",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+            }
+        }
+
+        if (showPhotoPreview && workoutPhotoUri != null) {
+            Dialog(
+                onDismissRequest = { },
+                properties = DialogProperties(
+                    usePlatformDefaultWidth = false,
+                    dismissOnClickOutside = false,
+                    dismissOnBackPress = true
+                )
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black)
+                ) {
+                    AsyncImage(
+                        model = workoutPhotoUri,
+                        contentDescription = "Workout photo full screen",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .statusBarsPadding()
+                            .padding(16.dp)
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.95f))
+                            .clickable { showPhotoPreview = false },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color.Black
+                        )
+                    }
+
+                    if (!fromHistory) {
+                        Box(
+                            modifier = Modifier
+                                .statusBarsPadding()
+                                .padding(16.dp)
+                                .align(Alignment.TopEnd)
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.95f))
+                                .clickable {
+                                    showPhotoPreview = false
+                                    launchCamera()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retake photo",
+                                tint = Color.Black
+                            )
+                        }
                     }
                 }
             }
@@ -555,4 +771,18 @@ private fun rememberStartMarkerIconWithLabel(
         }
         BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
     }
+}
+
+
+
+private fun createImageUri(context: android.content.Context): Uri {
+    val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+    val imagesDir = File(context.getExternalFilesDir(null), "Pictures").apply { mkdirs() }
+    val imageFile = File(imagesDir, "WORKOUT_$timeStamp.jpg")
+
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        imageFile
+    )
 }
