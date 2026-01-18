@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,19 +17,18 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.camille.steply.viewmodel.ProfileViewModel
 
 private val BgColor = Color(0xFFF4F1EC)
+private val AccentColor = Color(0xFFFF8A00)
 
 @Composable
 fun Profile(navController: NavHostController) {
     val viewModel: ProfileViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
-    // Stati per UI
     var showMenu by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -40,35 +39,20 @@ fun Profile(navController: NavHostController) {
     Scaffold(
         containerColor = BgColor,
         bottomBar = {
-            // Struttura della barra IDENTICA alla Home
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(
-                        start = sidePad,
-                        end = sidePad,
-                        bottom = if (isSmall) 12.dp else 18.dp
-                    ),
+                    .padding(start = sidePad, end = sidePad, bottom = if (isSmall) 12.dp else 18.dp),
                 contentAlignment = Alignment.Center
             ) {
                 BottomPillNavBar(
-                    selectedIndex = 2, // Indice per Profilo
+                    selectedIndex = 2,
                     onSelect = { index ->
                         when (index) {
-                            0 -> {
-                                navController.navigate("steps") {
-                                    popUpTo("steps") { inclusive = true }
-                                    launchSingleTop = true
-                                }
-                            }
-                            1 -> {
-                                navController.navigate("activity") {
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                            2 -> { /* Già qui */ }
+                            0 -> navController.navigate("steps") { launchSingleTop = true }
+                            1 -> navController.navigate("activity") { launchSingleTop = true }
+                            2 -> { /* Stay */ }
                         }
                     },
                     modifier = Modifier.fillMaxWidth()
@@ -76,28 +60,12 @@ fun Profile(navController: NavHostController) {
             }
         }
     ) { paddingValues ->
-
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // --- TOP BAR SETTINGS ---
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, end = sidePad),
-                contentAlignment = Alignment.TopEnd
-            ) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = sidePad), contentAlignment = Alignment.TopEnd) {
                 Box {
                     IconButton(onClick = { showMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = Color(0xFF111111) // TextPrimary della Home
-                        )
+                        Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF111111))
                     }
-
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
@@ -106,12 +74,15 @@ fun Profile(navController: NavHostController) {
                     ) {
                         DropdownMenuItem(
                             text = { Text("Edit Profile") },
-                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(20.dp)) },
-                            onClick = { showMenu = false }
+                            leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(20.dp)) },
+                            onClick = {
+                                showMenu = false
+                                navController.navigate("edit_profile")
+                            }
                         )
                         DropdownMenuItem(
                             text = { Text("Log Out", color = Color.Red) },
-                            leadingIcon = { Icon(Icons.Default.Logout, contentDescription = null, tint = Color.Red, modifier = Modifier.size(20.dp)) },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, Modifier.size(20.dp), tint = Color.Red) },
                             onClick = {
                                 showMenu = false
                                 showLogoutDialog = true
@@ -122,26 +93,16 @@ fun Profile(navController: NavHostController) {
             }
 
             Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = sidePad),
+                modifier = Modifier.fillMaxSize().padding(horizontal = sidePad),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(modifier = Modifier.height(60.dp))
-
-                // --- HEADER SECTION ---
                 ProfileHeaderSection(name = uiState.name, username = uiState.username)
-
                 Spacer(modifier = Modifier.height(40.dp))
-
-                // --- INFO CARDS ---
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     InfoCard(
                         label = "Weight",
-                        value = if (uiState.weight.isEmpty()) "--" else "${uiState.weight} kg",
+                        value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
                         modifier = Modifier.weight(1f)
                     )
                     InfoCard(
@@ -154,28 +115,19 @@ fun Profile(navController: NavHostController) {
         }
     }
 
-    // --- DIALOG DI CONFERMA LOGOUT ---
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Confirm Logout") },
-            text = { Text("Are you sure you want to log out? You will need to log in again to track your steps.") },
+            title = { Text("Confirm Logout", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to log out?") },
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutDialog = false
-                    viewModel.logout(onLogout = {
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    })
-                }) {
-                    Text("Logout", color = Color.Red, fontWeight = FontWeight.Bold)
-                }
+                    viewModel.logout { navController.navigate("login") { popUpTo(0) } }
+                }) { Text("Logout", color = Color.Red, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) {
-                    Text("Cancel", color = Color.Gray)
-                }
+                TextButton(onClick = { showLogoutDialog = false }) { Text("Cancel", color = Color.Gray) }
             },
             shape = RoundedCornerShape(28.dp),
             containerColor = Color.White
@@ -186,32 +138,17 @@ fun Profile(navController: NavHostController) {
 @Composable
 fun ProfileHeaderSection(name: String, username: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(
-            modifier = Modifier
-                .size(110.dp)
-                .background(Color(0xFFFF8A00), CircleShape), // Accent color della Home
-            contentAlignment = Alignment.Center
-        ) {
+        Box(modifier = Modifier.size(110.dp).background(AccentColor, CircleShape), contentAlignment = Alignment.Center) {
             Text(
-                text = if(name.isNotEmpty()) name.take(1).uppercase() else "U",
+                text = name.take(1).uppercase().ifEmpty { "U" },
                 style = MaterialTheme.typography.displayMedium,
                 color = Color.White,
                 fontWeight = FontWeight.Bold
             )
         }
         Spacer(modifier = Modifier.height(20.dp))
-        Text(
-            text = name.ifEmpty { "User Name" },
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF111111)
-            )
-        )
-        Text(
-            text = "@${username.ifEmpty { "username" }}",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color(0xFF8E8E93) // TextSecondary della Home
-        )
+        Text(text = name.ifEmpty { "User Name" }, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold))
+        Text(text = "@${username.ifEmpty { "username" }}", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
     }
 }
 
@@ -221,25 +158,12 @@ fun InfoCard(label: String, value: String, modifier: Modifier = Modifier) {
         modifier = modifier,
         shape = RoundedCornerShape(28.dp),
         color = Color.White,
-        shadowElevation = 8.dp // Ombra simile alla Home
+        shadowElevation = 8.dp
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            horizontalAlignment = Alignment.Start
-        ) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFF8E8E93)
-            )
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text(text = label, style = MaterialTheme.typography.labelMedium, color = Color.Gray)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF111111)
-                )
-            )
+            Text(text = value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold))
         }
     }
 }
