@@ -16,7 +16,7 @@ data class ProfileUiState(
     val surname: String = "",
     val password: String = "",
     val weight: String = "",
-    val dailyGoal: String = "10000",
+    val goal: String = "10000",
     val profilePhotoUri: Uri? = null,
     val isPasswordVisible: Boolean = false,
     val isSaving: Boolean = false,
@@ -151,7 +151,7 @@ class ProfileViewModel : ViewModel() {
                             surname = surname,
                             username = username,
                             weight = weight,
-                            dailyGoal = goal,
+                            goal = goal,
                             // Se c'è una foto, la carichiamo tramite Uri (coil la gestirà)
                             profilePhotoUri = if (photoUrl != null) Uri.parse(photoUrl) else null
                         )

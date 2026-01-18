@@ -103,7 +103,7 @@ fun RegistrationScreen(navController: NavHostController) {
                     onNext = {
                         viewModel.checkEmailAndNext(email) { currentStep = 2 }
                     },
-                    onBack = { navController.popBackStack() }
+                    onBack = { currentStep = 0 }
                 )
                 2 -> StepBio(
                     name = name, onNameChange = { name = it },

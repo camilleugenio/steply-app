@@ -159,7 +159,7 @@ fun LoginScreen(navController: NavHostController) {
                 ) {
                     Text("Don't have an account? ", color = Color.Gray)
                     TextButton(
-                        onClick = { navController.navigate("registration") },
+                        onClick = { navController.navigate(Routes.REGISTRATION) }, // Usa la costante!
                         contentPadding = PaddingValues(0.dp)
                     ) {
                         Text("Sign Up", color = Color(0xFFFF8C32), fontWeight = FontWeight.Bold)
