@@ -231,7 +231,11 @@ fun WorkoutScreen(
 
                                 navController.getBackStackEntry(Routes.ACTIVITY)
                                     .savedStateHandle
-                                    .set("workout_report_snapshot", snapshot)
+                                    .set(Routes.WORKOUT_REPORT_SNAPSHOT, snapshot)
+
+                                navController.getBackStackEntry(Routes.ACTIVITY)
+                                    .savedStateHandle
+                                    .set(Routes.FROM_HISTORY, false)
 
                                 navController.navigate(Routes.WORKOUT_REPORT) {
                                     launchSingleTop = true

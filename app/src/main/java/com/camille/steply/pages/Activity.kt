@@ -237,9 +237,10 @@ fun ActivityScreen(
                         ActivityHistorySection(
                             history = historyState.items,
                             onClick = { snap ->
-                                navController.currentBackStackEntry
-                                    ?.savedStateHandle
-                                    ?.set("workout_report_snapshot", snap)
+                                val activityEntry = navController.getBackStackEntry(Routes.ACTIVITY)
+
+                                activityEntry.savedStateHandle.set(Routes.WORKOUT_REPORT_SNAPSHOT, snap)
+                                activityEntry.savedStateHandle.set(Routes.FROM_HISTORY, true)
 
                                 navController.navigate(Routes.WORKOUT_REPORT) {
                                     launchSingleTop = true

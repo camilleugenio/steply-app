@@ -47,4 +47,18 @@ class WorkoutHistoryRepository(private val context: Context) {
     suspend fun clearAll() {
         context.dataStore.edit { it.remove(KEY) }
     }
+
+    suspend fun updatePhoto(startTimeMs: Long, photoUri: String?) {
+        context.dataStore.edit { prefs ->
+            val current = runCatching {
+                json.decodeFromString<List<WorkoutReportSnapshot>>(prefs[KEY] ?: "[]")
+            }.getOrElse { emptyList() }
+
+            val updated = current.map { snap ->
+                if (snap.startTimeMs == startTimeMs) snap.copy(photoUri = photoUri) else snap
+            }.sortedByDescending { it.startTimeMs }
+
+            prefs[KEY] = json.encodeToString(updated)
+        }
+    }
 }

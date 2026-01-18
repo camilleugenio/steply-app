@@ -36,6 +36,10 @@ class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
     fun addWorkout(snapshot: WorkoutReportSnapshot) {
         viewModelScope.launch { repo.add(snapshot) }
     }
+
+    fun updatePhoto(startTimeMs: Long, photoUri: String?) {
+        viewModelScope.launch { repo.updatePhoto(startTimeMs, photoUri) }
+    }
 }
 
 
