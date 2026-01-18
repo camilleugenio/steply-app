@@ -7,4 +7,7 @@ object Routes {
     const val PROFILE = "profile"
     const val WORKOUT = "workout"
     const val WORKOUT_REPORT = "workout_report"
+    const val REGISTRATION = "registration"
+
+    const val LOGIN = "login"
 }

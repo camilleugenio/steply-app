@@ -15,10 +15,19 @@ import androidx.navigation.compose.rememberNavController
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.HomeVmFactory
 import com.camille.steply.viewmodel.WorkoutType
+import com.google.firebase.auth.FirebaseAuth
 
 @Composable
 fun MainNavGraph() {
     val navController = rememberNavController()
+    val auth = FirebaseAuth.getInstance()
+
+    // Logica di scelta pagina iniziale
+    val startRoute = if(auth.currentUser == null) {
+        Routes.LOGIN
+    } else {
+        Routes.STEPS
+    }
 
     val context = LocalContext.current
     val homeViewModel: HomeViewModel = viewModel(
@@ -46,12 +55,19 @@ fun MainNavGraph() {
 
     NavHost(
         navController = navController,
-        startDestination = Routes.STEPS,
+        startDestination = startRoute,
         enterTransition = { fadeIn(animationSpec = tween(40)) },
         exitTransition = { fadeOut(animationSpec = tween(40)) },
         popEnterTransition = { fadeIn(animationSpec = tween(40)) },
         popExitTransition = { fadeOut(animationSpec = tween(40)) }
     ) {
+        composable(Routes.LOGIN) {
+            LoginScreen(navController = navController)
+        }
+
+        composable(Routes.REGISTRATION) {
+            RegistrationScreen(navController = navController)
+        }
         composable(Routes.STEPS) {
             Home(navController = navController, homeViewModel = homeViewModel)
         }
