@@ -109,7 +109,10 @@ class StepForegroundService : Service(), SensorEventListener {
         scope.launch { store.setTrackingEnabled(true) }
 
         // Show foreground notification immediately
-        startForeground(NOTIF_ID, buildNotification(steps = 0))
+        scope.launch {
+            val goal = store.getDailyGoal(default = 50)
+            startForeground(NOTIF_ID, buildNotification(steps = 0, goal = goal))
+        }
 
         scope.launch {
             dayStart = store.getDayStartEpoch()
@@ -175,7 +178,8 @@ class StepForegroundService : Service(), SensorEventListener {
                 store.setStepsForDayStartEpoch(dayStart, todaySteps)
                 maybeNotifyGoal(todaySteps)
 
-                startForeground(NOTIF_ID, buildNotification(todaySteps))
+                val goal = store.getDailyGoal(default = 50)
+                startForeground(NOTIF_ID, buildNotification(todaySteps, goal))
             }
         }
     }
@@ -229,7 +233,8 @@ class StepForegroundService : Service(), SensorEventListener {
                 store.setStepsForDayStartEpoch(midnight, next)
                 maybeNotifyGoal(next)
 
-                startForeground(NOTIF_ID, buildNotification(next))
+                val goal = store.getDailyGoal(default = 50)
+                startForeground(NOTIF_ID, buildNotification(next, goal))
             }
         }
     }
@@ -259,7 +264,7 @@ class StepForegroundService : Service(), SensorEventListener {
 
     // -------------------- NOTIFICATIONS --------------------
 
-    private fun buildNotification(steps: Int): Notification {
+    private fun buildNotification(steps: Int, goal: Int): Notification {
         val openAppIntent = PendingIntent.getActivity(
             this,
             0,
@@ -270,9 +275,10 @@ class StepForegroundService : Service(), SensorEventListener {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Steply")
-            .setContentText("Steps: $steps")
+            .setSmallIcon(R.drawable.ic_notification_steply)
+            .setColor(0xFFFF9F1C.toInt())
+            .setColorized(true)
+            .setContentText("Steps: $steps / $goal")
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setOngoing(true)
             .setShowWhen(false)
@@ -294,7 +300,9 @@ class StepForegroundService : Service(), SensorEventListener {
         )
 
         return NotificationCompat.Builder(this, GOAL_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification_steply)
+            .setColor(0xFFFF9F1C.toInt())
+            .setColorized(true)
             .setContentTitle("Goal reached! 🎉")
             .setContentText("You hit $goal steps.")
             .setShowWhen(false)
