@@ -41,6 +41,8 @@ fun LoginScreen(navController: NavHostController) {
                 .padding(horizontal = 24.dp)
                 .padding(top = 80.dp, bottom = 40.dp)
         ) {
+            Spacer(modifier = Modifier.height(100.dp))
+
             // 1. INTESTAZIONE
             Column(modifier = Modifier.weight(1.2f)) {
                 Text(

@@ -34,7 +34,10 @@ class ProfileViewModel : ViewModel() {
     private val storage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
 
     init {
-        //per forzare il Logout
+        //per forzare il logout:
+        // 1. levare il commento sottostante per forzare il Logout > run
+        //2. commenta di nuovo > run
+
         //auth.signOut()
 
         if (auth.currentUser != null) {
