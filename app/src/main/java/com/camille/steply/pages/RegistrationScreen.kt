@@ -74,7 +74,7 @@ fun RegistrationScreen(navController: NavHostController) {
 
             when (targetStep) {
                 0 -> StepIntro(
-                    navController = navController, //
+                    navController = navController,
                     onNext = { currentStep = 1 }
                 )
                 1 -> StepAuth(
@@ -280,7 +280,7 @@ fun StepAuth(
     }
 }
 
-// --- STEP 2: BIO (NICE TO MEET YOU) ---
+// --- STEP 2: BIO ---
 @Composable
 fun StepBio(
     progress: Float,
@@ -367,7 +367,7 @@ fun StepBio(
     }
 }
 
-// --- STEP 3: HEALTH (ALMOST THERE!) ---
+// --- STEP 3: HEALTH  ---
 @Composable
 fun StepHealth(
     progress: Float,

@@ -34,19 +34,12 @@ class ProfileViewModel : ViewModel() {
     private val storage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
 
     init {
+        //per forzare il Logout
         //auth.signOut()
 
         if (auth.currentUser != null) {
             loadUserData()
         }
-        /* LOGIN FORZATO: Appena apri la schermata profilo, l'app fa il login da sola
-        auth.signInWithEmailAndPassword("test@steply.it", "password")
-            .addOnSuccessListener {
-                _uiState.update { it.copy(message = "Login automatico riuscito!") }
-            }
-            .addOnFailureListener {
-                _uiState.update { it.copy(message = "Errore login automatico: ${it.message}") }
-            }*/
     }
 
     // FUNZIONE PER LA SCHERMATA DI REGISTRAZIONE
@@ -98,7 +91,7 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    // --- NUOVA FUNZIONE PER IL LOGIN ---
+    // FUNZIONE PER IL LOGIN
     fun loginUser(
         email: String,
         pass: String,
@@ -118,11 +111,11 @@ class ProfileViewModel : ViewModel() {
                 // Login fallito
                 _uiState.update { it.copy(isSaving = false) }
 
-                // Messaggio "precisino" in base all'errore
+                // Messaggio in base all'errore
                 val errorMsg = when {
-                    e.message?.contains("password") == true -> "Password errata. Riprova!"
-                    e.message?.contains("no user") == true -> "Email non trovata."
-                    else -> e.localizedMessage ?: "Errore durante il login"
+                    e.message?.contains("password") == true -> "Incorrect password. Please try again!"
+                    e.message?.contains("no user") == true -> "Invalid email of password"
+                    else -> e.localizedMessage ?: "An error occurred during login"
                 }
 
                 _uiState.update { it.copy(message = errorMsg) }
@@ -192,7 +185,7 @@ class ProfileViewModel : ViewModel() {
     }
 
     /**
-     * QUESTA È LA FUNZIONE CHE VIENE CHIAMATA DAL TASTO "SALVA" NELLA UI
+     * FUNZIONE CHE VIENE CHIAMATA DAL TASTO "SALVA" NELLA UI
      */
     fun saveProfile() {
         val s = _uiState.value
@@ -200,7 +193,7 @@ class ProfileViewModel : ViewModel() {
     }
 
     /**
-     * LOGICA REALE DI SALVATAGGIO SU CLOUD (MILANO europe-west8)
+     * LOGICA DI SALVATAGGIO SU CLOUD (MILANO europe-west8)
      */
     private fun saveProfileToFirebase(
         username: String,
