@@ -61,13 +61,18 @@ fun RegistrationScreen(navController: NavHostController) {
             enter = fadeIn(animationSpec = tween(1000)) + expandVertically(),
             exit = fadeOut(animationSpec = tween(1000)) + shrinkVertically()
         ) {
-            Box(
+            // Usiamo Column invece di Box per far sì che lo Spacer spinga davvero la barra
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .padding(top = 56.dp)
+                    .padding(top = 80.dp) // Qui regoli quanto deve stare bassa rispetto al bordo alto
             ) {
                 val progress = currentStep / 3f
+
+                // Se vuoi ancora più spazio tra il bordo e la barra, usa questo:
+                //Spacer(modifier = Modifier.height(20.dp))
+
                 SteplyProgressBar(progress)
             }
         }
