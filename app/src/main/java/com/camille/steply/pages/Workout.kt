@@ -97,7 +97,7 @@ fun WorkoutScreen(
     }
 
     LaunchedEffect(Unit) {
-        Log.d("KCAL_UI", "WorkoutScreen LaunchedEffect(Unit) fired")
+        Log.d("KCAL_UI", "WorkoutScreen started")
         val i = Intent(context, WorkoutLocationService::class.java).apply {
             action = WorkoutLocationService.ACTION_START
         }
@@ -105,6 +105,10 @@ fun WorkoutScreen(
 
         workoutVm.ensureLocationUpdates()
         workoutVm.start()
+    }
+
+    LaunchedEffect(type, homeState.weightKg) {
+        val weightKg = homeState.weightKg ?: return@LaunchedEffect
 
         val activity = when (type) {
             WorkoutType.RUN -> "run"
@@ -112,12 +116,10 @@ fun WorkoutScreen(
             WorkoutType.CYCLING -> "cycle"
         }
 
-        // TODO: replace with real user profile data (weight/age/sex)
-        val weightKg = 70.0
         val ageYears = 27
         val sex = "male"
 
-        Log.d("KCAL_UI", "Calling startRemoteSessionAndLoop")
+        Log.d("KCAL_UI", "Calling startRemoteSessionAndLoop with weight=$weightKg")
         workoutVm.startRemoteSessionAndLoop(
             activity = activity,
             weightKg = weightKg,
@@ -127,6 +129,7 @@ fun WorkoutScreen(
             intervalMs = 10_000L
         )
     }
+
 
     LaunchedEffect(paused) {
         if (paused) workoutVm.pause() else workoutVm.resume()

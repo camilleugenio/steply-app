@@ -22,6 +22,9 @@ import java.util.Locale
 import kotlin.math.roundToInt
 import com.camille.steply.data.meteo.OpenMeteoApi
 import com.camille.steply.data.meteo.openMeteoCodeToEmoji
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 
 
 
@@ -29,8 +32,9 @@ data class HomeUiState(
     val steps: Int = 0,
     val km: String = "0.00",
     val kcal: String = "0",
+    val weightKg: Double? = null,
     val streakDays: Int = 0,
-    val dailyGoal: Int = 50,
+    val dailyGoal: Int = 0,
     val isTracking: Boolean = true,
     val currentDate: String = "",
     val currentDayname: String = "",
@@ -62,6 +66,11 @@ class HomeViewModel(
     private val sensor = StepSensor(appContext)
     private var listening = false
 
+    private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+    private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
+    private var goalListener: ListenerRegistration? = null
+
+
     val goalNotificationEnabled = store.goalNotificationEnabledFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
@@ -80,11 +89,14 @@ class HomeViewModel(
         refreshStreak(_uiState.value.currentDateIso, _uiState.value.dailyGoal)
         loadSelectedDayFromStore(_uiState.value.selectedDateIso)
         refreshCalendarSteps()
+        observeUserSettingsFromFirestore()
+
         viewModelScope.launch {
             store.todayStepsFlow().collect { steps ->
                 val kmText = stepsToKm(steps)
                 val kmValue = kmText.toDouble()
-                val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+                val weight = _uiState.value.weightKg ?: 70.0
+                val kcalValue = (weight * kmValue * 0.75).roundToInt()
 
                 val todayIso = LocalDate.now().toString()
 
@@ -251,7 +263,8 @@ class HomeViewModel(
 
             val kmText = stepsToKm(steps)
             val kmValue = kmText.toDouble()
-            val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+            val weight = _uiState.value.weightKg ?: 70.0
+            val kcalValue = (weight * kmValue * 0.75).roundToInt()
 
             _uiState.update { state ->
                 val viewingToday = state.selectedDateIso == LocalDate.now().toString()
@@ -277,7 +290,8 @@ class HomeViewModel(
 
             val kmText = stepsToKm(steps)
             val kmValue = kmText.toDouble()
-            val kcalValue = (70.0 * kmValue * 0.75).roundToInt()
+            val weight = _uiState.value.weightKg ?: 70.0
+            val kcalValue = (weight * kmValue * 0.75).roundToInt()
 
             val d = LocalDate.parse(dateIso)
 
@@ -328,7 +342,45 @@ class HomeViewModel(
             _uiState.update { it.copy(streakDays = streak) }
         }
     }
+
     override fun onCleared() {
+        goalListener?.remove()
+        goalListener = null
         super.onCleared()
+    }
+
+    // -------------------- DATI DB --------------------
+
+    private fun observeUserSettingsFromFirestore() {
+        val uid = auth.currentUser?.uid ?: return
+
+        goalListener?.remove()
+        goalListener = db.collection("users")
+            .document(uid)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) return@addSnapshotListener
+                if (snapshot == null || !snapshot.exists()) return@addSnapshotListener
+
+                val goal = (snapshot.getLong("goal")
+                    ?: snapshot.get("goal")?.toString()?.toLongOrNull()
+                    ?: 0L).toInt()
+
+                val weightKg: Double? = runCatching {
+                    val raw = snapshot.get("weight") ?: return@runCatching null
+                    when (raw) {
+                        is Number -> raw.toDouble()
+                        is String -> raw.trim().replace(",", ".").toDoubleOrNull()
+                        else -> raw.toString().trim().replace(",", ".").toDoubleOrNull()
+                    }
+                }.getOrNull()
+
+                _uiState.update { it.copy(dailyGoal = goal, weightKg = weightKg) }
+
+                viewModelScope.launch {
+                    store.setDailyGoal(goal)
+                }
+
+                refreshStreak(LocalDate.now().toString(), goal)
+            }
     }
 }

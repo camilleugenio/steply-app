@@ -117,7 +117,10 @@ class WorkoutViewModel(
     fun stopKcalLoop() {
         kcalJob?.cancel()
         kcalJob = null
+        workoutId = null
+        _kcal.value = 0.0
     }
+
 
     fun pingServer() {
         viewModelScope.launch {

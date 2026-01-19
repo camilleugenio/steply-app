@@ -303,14 +303,6 @@ private fun TopBarLight(
                     )
                 }
 
-                IconButton(onClick = onSettings, modifier = Modifier.size(44.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = TextPrimary
-                    )
-                }
-
                 IconToggleButton(
                     checked = goalNotifEnabled,
                     onCheckedChange = onToggleGoalNotif
