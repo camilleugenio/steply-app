@@ -2,7 +2,10 @@ package com.camille.steply.pages
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -18,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -27,7 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
 import com.camille.steply.viewmodel.ProfileViewModel
+import coil.request.ImageRequest
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
+import com.camille.steply.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,11 +51,22 @@ fun EditProfileScreen(navController: NavHostController) {
     var tempWeight by remember { mutableStateOf(uiState.weight) }
     var tempGoal by remember { mutableStateOf(uiState.goal) }
 
-    // Dialog states and password visibility
+    // Dialog states
     var showExitDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+
+    // Photo Picker Launcher
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let {
+            viewModel.uploadProfilePicture(it) {
+                Toast.makeText(context, "Photo updated!", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     // Check for unsaved changes
     val hasUnsavedChanges = remember(tempName, tempSurname, tempWeight, tempGoal, uiState) {
@@ -56,7 +76,6 @@ fun EditProfileScreen(navController: NavHostController) {
                 tempGoal != uiState.goal
     }
 
-    // Handle physical back button
     BackHandler(enabled = hasUnsavedChanges) {
         showExitDialog = true
     }
@@ -96,19 +115,69 @@ fun EditProfileScreen(navController: NavHostController) {
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Avatar
+            // --- AVATAR WITH EDIT ICON ---
             Box(
-                modifier = Modifier
-                    .size(100.dp)
-                    .background(Color(0xFFFF8A00), CircleShape),
+                modifier = Modifier.size(110.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = tempName.take(1).uppercase().ifEmpty { "U" },
-                    style = MaterialTheme.typography.displayMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
+                // Main Circle
+                Surface(
+                    modifier = Modifier.size(100.dp),
+                    shape = CircleShape,
+                    color = Color(0xFFFF8A00),
+                    border = BorderStroke(2.dp, Color.White),
+                    shadowElevation = 4.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (uiState.profilePhotoUri != null) {
+                            AsyncImage(
+                                model = ImageRequest.Builder(LocalContext.current)
+                                    .data(uiState.profilePhotoUri) // L'URI che arriva dal ViewModel
+                                    .crossfade(true)               // Effetto sfumato piacevole al cambio
+                                    .build(),
+                                contentDescription = "Foto Profilo",
+                                modifier = Modifier
+                                    .size(120.dp)                  // Regola la dimensione come preferisci
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop,
+                                // Questo è il segreto: se l'URI cambia, Coil ricarica l'immagine
+                                placeholder = painterResource(R.drawable.ic_profile_placeholder), // Una risorsa di default se non c'è foto
+                                error = painterResource(R.drawable.ic_profile_placeholder)        // Se c'è un errore di caricamento
+                            )
+                        } else {
+                            Text(
+                                text = tempName.take(1).uppercase().ifEmpty { "U" },
+                                style = MaterialTheme.typography.displayMedium,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+
+                // Pencil Icon Button
+                Surface(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .align(Alignment.BottomEnd)
+                        .offset(x = (-4).dp, y = (-4).dp),
+                    shape = CircleShape,
+                    color = Color.Black.copy(alpha = 0.5f),
+                    onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Photo",
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))

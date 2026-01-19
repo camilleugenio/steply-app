@@ -1,26 +1,33 @@
 package com.camille.steply.viewmodel
 
 import android.net.Uri
+import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
+import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import androidx.core.net.toUri
+import android.util.Log
 
-// Modello per la singola voce di peso nello storico
+/**
+ * Data model for weight history entries
+ */
 data class WeightEntry(
     val date: String = "",
     val weight: Double = 0.0,
     val timestamp: com.google.firebase.Timestamp? = null
 )
 
+/**
+ * UI State for the Profile and Auth flow
+ */
 data class ProfileUiState(
     val username: String = "",
     val name: String = "",
@@ -39,8 +46,17 @@ class ProfileViewModel : ViewModel() {
     val uiState: StateFlow<ProfileUiState> = _uiState
 
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
+    //private val storage = FirebaseStorage.getInstance()
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
 
+    private val storage: FirebaseStorage? by lazy {
+        try {
+            // Se il bucket ti dà ancora problemi, usa getInstance() senza parametri
+            FirebaseStorage.getInstance()
+        } catch (e: Exception) {
+            null
+        }
+    }
     init {
         if (auth.currentUser != null) {
             loadUserData()
@@ -48,9 +64,8 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Carica i dati del profilo utente in tempo reale
-     */
+    // --- USER DATA LOADING ---
+
     private fun loadUserData() {
         val uid = auth.currentUser?.uid ?: return
 
@@ -68,7 +83,7 @@ class ProfileViewModel : ViewModel() {
                         surname = snapshot.getString("surname") ?: "",
                         username = snapshot.getString("username") ?: "",
                         weight = snapshot.get("weight")?.toString() ?: "",
-                        goal = snapshot.get("dailyGoal")?.toString() ?: "10000",
+                        goal = snapshot.get("goal")?.toString() ?: "10000",
                         profilePhotoUri = photoUrl?.toUri()
                     )
                 }
@@ -76,9 +91,6 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Carica lo storico dei pesi ordinato per tempo (necessario per il grafico)
-     */
     fun loadWeightHistory() {
         val uid = auth.currentUser?.uid ?: return
 
@@ -96,9 +108,21 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    /**
-     * Registrazione nuovo utente
-     */
+    // --- AUTHENTICATION FUNCTIONS ---
+
+    fun loginUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        _uiState.update { it.copy(isSaving = true) }
+        auth.signInWithEmailAndPassword(email, pass)
+            .addOnSuccessListener {
+                _uiState.update { it.copy(isSaving = false) }
+                onSuccess()
+            }
+            .addOnFailureListener { e ->
+                _uiState.update { it.copy(isSaving = false) }
+                onError(e.localizedMessage ?: "Login failed")
+            }
+    }
+
     fun registerUser(
         name: String, surname: String, username: String,
         email: String, pass: String, weight: String, goal: String,
@@ -112,7 +136,7 @@ class ProfileViewModel : ViewModel() {
                 val userData = mapOf(
                     "email" to email, "name" to name, "surname" to surname,
                     "username" to username, "weight" to weight,
-                    "dailyGoal" to (goal.toIntOrNull() ?: 10000),
+                    "goal" to (goal.toIntOrNull() ?: 10000),
                     "steps" to 0, "createdAt" to com.google.firebase.Timestamp.now()
                 )
 
@@ -129,30 +153,7 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    /**
-     * Login
-     */
-    fun loginUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        _uiState.update { it.copy(isSaving = true) }
-        auth.signInWithEmailAndPassword(email, pass)
-            .addOnSuccessListener {
-                _uiState.update { it.copy(isSaving = false) }
-                onSuccess()
-            }
-            .addOnFailureListener { e ->
-                _uiState.update { it.copy(isSaving = false) }
-                onError(e.localizedMessage ?: "Login failed")
-            }
-    }
-
-    /**
-     * Controllo email durante la registrazione
-     */
     fun checkEmailAndNext(email: String, onAvailable: () -> Unit) {
-        if (!email.contains("@") || !email.contains(".")) {
-            updateMessage("Invalid email format.")
-            return
-        }
         _uiState.update { it.copy(isSaving = true, message = null) }
         auth.fetchSignInMethodsForEmail(email)
             .addOnSuccessListener { result ->
@@ -165,9 +166,8 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    /**
-     * Aggiornamento profilo completo e salvataggio automatico dello storico
-     */
+    // --- PROFILE UPDATE FUNCTIONS ---
+
     fun updateFullProfile(newName: String, newSurname: String, newWeight: String, newGoal: String, onSuccess: () -> Unit) {
         val uid = auth.currentUser?.uid ?: return
         _uiState.update { it.copy(isSaving = true) }
@@ -176,7 +176,7 @@ class ProfileViewModel : ViewModel() {
             "name" to newName,
             "surname" to newSurname,
             "weight" to newWeight,
-            "dailyGoal" to (newGoal.toIntOrNull() ?: 10000)
+            "goal" to (newGoal.toIntOrNull() ?: 10000)
         )
 
         db.collection("users").document(uid).set(userMap, SetOptions.merge())
@@ -187,15 +187,74 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    /**
-     * Salva il peso nella sottocollezione.
-     * Gestisce la conversione della virgola in punto per evitare errori di database.
-     */
+    fun uploadProfilePicture(uri: Uri, onSuccess: (String) -> Unit) {
+        val uid = auth.currentUser?.uid ?: return
+
+        // USIAMO IL PUNTO DI DOMANDA: storage?.
+        // Se storage è null, l'intera riga non viene eseguita e storageRef sarà null
+        val storageRef = storage?.reference?.child("profile_pics/$uid.jpg")
+
+        if (storageRef == null) {
+            Log.e("Profile", "Storage non disponibile (bucket errato o rete)")
+            return
+        }
+
+        _uiState.update { it.copy(isSaving = true) }
+
+        storageRef.putFile(uri)
+            .addOnFailureListener { e ->
+                Log.e("Upload", "Errore: ${e.message}")
+                _uiState.update { it.copy(isSaving = false) }
+            }
+            .continueWithTask { task ->
+                if (!task.isSuccessful) task.exception?.let { throw it }
+                storageRef.downloadUrl
+            }
+            .addOnCompleteListener { task ->
+                // ... resto del codice identico ...
+                if (task.isSuccessful) {
+                    val downloadUri = task.result.toString()
+                    db.collection("users").document(uid).update("photoUrl", downloadUri)
+                        .addOnSuccessListener {
+                            _uiState.update { it.copy(isSaving = false, profilePhotoUri = Uri.parse(downloadUri)) }
+                            onSuccess(downloadUri)
+                        }
+                } else {
+                    _uiState.update { it.copy(isSaving = false) }
+                }
+            }
+    }
+
+
+
+    // --- WEIGHT LOGGING FUNCTIONS ---
+
+    fun updateWeight(newWeight: String) {
+        val userId = auth.currentUser?.uid ?: return
+        val formattedWeight = newWeight.replace(",", ".")
+        val weightDouble = formattedWeight.toDoubleOrNull() ?: return
+
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val todayDate = sdf.format(Date())
+
+        db.collection("users").document(userId).update("weight", formattedWeight)
+
+        val historyEntry = hashMapOf(
+            "weight" to weightDouble,
+            "date" to todayDate,
+            "timestamp" to com.google.firebase.Timestamp.now()
+        )
+
+        db.collection("users").document(userId)
+            .collection("weight_history").document(todayDate)
+            .set(historyEntry)
+    }
+
     private fun saveWeightToHistory(uid: String, weightStr: String) {
         if (weightStr.isEmpty()) return
         val weightValue = weightStr.replace(",", ".").toDoubleOrNull() ?: return
-
         val currentDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
         val weightData = WeightEntry(
             date = currentDate,
             weight = weightValue,
@@ -207,61 +266,20 @@ class ProfileViewModel : ViewModel() {
             .set(weightData)
     }
 
-    fun updateMessage(newMessage: String?) = _uiState.update { it.copy(message = newMessage) }
+    // --- ACCOUNT SETTINGS ---
+
+    fun changePassword(newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        auth.currentUser?.updatePassword(newPassword)
+            ?.addOnCompleteListener { task ->
+                if (task.isSuccessful) onSuccess()
+                else onError(task.exception?.message ?: "Error updating password")
+            }
+    }
 
     fun logout(onLogout: () -> Unit) {
         auth.signOut()
         onLogout()
     }
 
-    fun updateWeight(newWeight: String) {
-        val userId = auth.currentUser?.uid ?: return
-
-        // 1. Puliamo la stringa (gestiamo virgole e punti)
-        val formattedWeight = newWeight.replace(",", ".")
-        val weightDouble = formattedWeight.toDoubleOrNull() ?: return
-
-        // 2. Prepariamo la data di oggi
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val todayDate = sdf.format(Date())
-        val timestamp = com.google.firebase.Timestamp.now()
-
-        // 3. Aggiorniamo il peso principale dell'utente
-        db.collection("users").document(userId)
-            .update("weight", formattedWeight)
-
-        // 4. Aggiungiamo la pesata alla cronologia (sottocollezione)
-        val historyEntry = hashMapOf(
-            "weight" to weightDouble,
-            "date" to todayDate,
-            "timestamp" to timestamp
-        )
-
-        db.collection("users").document(userId)
-            .collection("weight_history").document(todayDate) // Usiamo la data come ID per evitare doppioni nello stesso giorno
-            .set(historyEntry)
-            .addOnSuccessListener {
-                // I dati si aggiorneranno automaticamente grazie allo snapshotListener che abbiamo già
-            }
-    }
-
-    fun changePassword(newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        val user = FirebaseAuth.getInstance().currentUser
-
-        if (user != null) {
-            user.updatePassword(newPassword)
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        onSuccess()
-                        println("Password aggiornata con successo")
-                    } else {
-                        val errorMsg = task.exception?.message ?: "Errore durante il cambio password"
-                        onError(errorMsg)
-                        println("Errore Firebase: $errorMsg")
-                    }
-                }
-        } else {
-            onError("Utente non autenticato")
-        }
-    }
+    fun updateMessage(newMessage: String?) = _uiState.update { it.copy(message = newMessage) }
 }
