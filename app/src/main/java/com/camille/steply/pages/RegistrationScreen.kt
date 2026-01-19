@@ -225,7 +225,7 @@ fun StepAuth(
             )
 
             if (uiStateMessage?.contains("email", ignoreCase = true) == true) {
-                Text(text = uiStateMessage ?: "", color = Color.Red, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                Text(text = uiStateMessage, color = Color.Red, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
             }
 
             Spacer(modifier = Modifier.height(24.dp))
