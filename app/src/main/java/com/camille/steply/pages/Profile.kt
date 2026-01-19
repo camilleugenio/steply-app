@@ -5,14 +5,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
@@ -61,6 +65,7 @@ fun Profile(navController: NavHostController) {
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            // SETTINGS BUTTON
             Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = sidePad), contentAlignment = Alignment.TopEnd) {
                 Box {
                     IconButton(onClick = { showMenu = true }) {
@@ -97,24 +102,38 @@ fun Profile(navController: NavHostController) {
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(modifier = Modifier.height(60.dp))
+
+                // HEADER SECTION
                 ProfileHeaderSection(name = uiState.name, username = uiState.username)
+
                 Spacer(modifier = Modifier.height(40.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    InfoCard(
+
+                // CONTENT SECTION
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // 1. GOAL PROGRESS CARD (Static / Informative)
+                    GoalProgressCard(
+                        currentSteps = 6450, // Placeholder: implement real step tracking later
+                        goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
+                    )
+
+                    // 2. WEIGHT ROW (Interactive with Chevron)
+                    ProfileRowItem(
                         label = "Weight",
                         value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
-                        modifier = Modifier.weight(1f)
-                    )
-                    InfoCard(
-                        label = "Daily Goal",
-                        value = uiState.goal.ifEmpty { "10,000" },
-                        modifier = Modifier.weight(1f)
+                        icon = Icons.Default.Scale,
+                        onClick = {
+                            navController.navigate("weight_history")
+                        }
                     )
                 }
             }
         }
     }
 
+    // LOGOUT DIALOG
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -153,17 +172,97 @@ fun ProfileHeaderSection(name: String, username: String) {
 }
 
 @Composable
-fun InfoCard(label: String, value: String, modifier: Modifier = Modifier) {
+fun GoalProgressCard(currentSteps: Int, goalSteps: Int) {
+    val progress = (currentSteps.toFloat() / goalSteps.toFloat()).coerceIn(0f, 1f)
+
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         color = Color.White,
-        shadowElevation = 8.dp
+        modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text(text = label, style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(text = value, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold))
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Flag, null, tint = Color.Black.copy(0.6f), modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text("Daily Goal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    text = "$goalSteps steps",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Color.Gray
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Progress Bar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(10.dp)
+                    .background(Color(0xFFF0F0F0), CircleShape)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progress)
+                        .fillMaxHeight()
+                        .background(AccentColor, CircleShape)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "${(progress * 100).toInt()}% of your goal",
+                style = MaterialTheme.typography.labelMedium,
+                color = AccentColor,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun ProfileRowItem(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = Color.Black.copy(0.6f), modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                color = AccentColor
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = Color.LightGray,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

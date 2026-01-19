@@ -84,6 +84,10 @@ fun MainNavGraph() {
             EditProfileScreen(navController =  navController)
         }
 
+        composable(Routes.WEIGHTHISTORY) {
+            WeightHistoryScreen(navController)
+        }
+
         composable("${Routes.WORKOUT}/{type}") { backStackEntry ->
             val typeStr = backStackEntry.arguments?.getString("type") ?: WorkoutType.WALK.name
             val type = runCatching { WorkoutType.valueOf(typeStr) }.getOrElse { WorkoutType.WALK }
