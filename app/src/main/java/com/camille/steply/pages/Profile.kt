@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.camille.steply.viewmodel.ProfileViewModel
+import androidx.compose.ui.draw.clip
+
 
 private val BgColor = Color(0xFFF4F1EC)
 private val AccentColor = Color(0xFFFF8A00)
@@ -104,7 +106,7 @@ fun Profile(navController: NavHostController) {
                 Spacer(modifier = Modifier.height(60.dp))
 
                 // HEADER SECTION
-                ProfileHeaderSection(name = uiState.name, username = uiState.username)
+                ProfileHeaderSection(name = uiState.name, username = uiState.username, photoUri = uiState.profilePhotoUri)
 
                 Spacer(modifier = Modifier.height(40.dp))
 
@@ -115,7 +117,7 @@ fun Profile(navController: NavHostController) {
                 ) {
                     // 1. GOAL PROGRESS CARD (Static / Informative)
                     GoalProgressCard(
-                        currentSteps = 6450, // Placeholder: implement real step tracking later
+                        currentSteps = 6140, // Placeholder: implement real step tracking later
                         goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
                     )
 
@@ -155,19 +157,59 @@ fun Profile(navController: NavHostController) {
 }
 
 @Composable
-fun ProfileHeaderSection(name: String, username: String) {
+fun ProfileHeaderSection(name: String, username: String, photoUri: android.net.Uri?) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(modifier = Modifier.size(110.dp).background(AccentColor, CircleShape), contentAlignment = Alignment.Center) {
-            Text(
-                text = name.take(1).uppercase().ifEmpty { "U" },
-                style = MaterialTheme.typography.displayMedium,
+        // --- LOGICA CONDIZIONALE PER L'AVATAR ---
+        if (photoUri != null) {
+            // CASO A: C'è la foto -> Mostra AsyncImage con bordo arancione
+            Surface(
+                modifier = Modifier.size(110.dp),
+                shape = CircleShape,
                 color = Color.White,
-                fontWeight = FontWeight.Bold
-            )
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.LightGray),
+                shadowElevation = 4.dp
+            ) {
+                coil.compose.AsyncImage(
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(photoUri)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                )
+            }
+        } else {
+            // CASO B: Non c'è la foto -> Cerchio Arancione con Iniziale
+            Box(
+                modifier = Modifier
+                    .size(110.dp)
+                    .background(AccentColor, CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = name.take(1).uppercase().ifEmpty { "U" },
+                    style = MaterialTheme.typography.displayMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
+
         Spacer(modifier = Modifier.height(20.dp))
-        Text(text = name.ifEmpty { "User Name" }, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold))
-        Text(text = "@${username.ifEmpty { "username" }}", style = MaterialTheme.typography.bodyLarge, color = Color.Gray)
+
+        // NOME E USERNAME
+        Text(
+            text = name.ifEmpty { "User Name" },
+            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
+        )
+        Text(
+            text = "@${username.ifEmpty { "username" }}",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Color.Gray
+        )
     }
 }
 

@@ -1,5 +1,6 @@
 package com.camille.steply.pages
 
+import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -19,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -32,11 +34,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import coil.compose.AsyncImage
-import com.camille.steply.viewmodel.ProfileViewModel
 import coil.request.ImageRequest
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
 import com.camille.steply.R
+import com.camille.steply.viewmodel.ProfileViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,41 +51,39 @@ fun EditProfileScreen(navController: NavHostController) {
     var tempWeight by remember { mutableStateOf(uiState.weight) }
     var tempGoal by remember { mutableStateOf(uiState.goal) }
 
-    // Dialog states
+    // Nuovo stato locale per la foto scelta ma NON ancora salvata su Firebase
+    var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
+
     var showExitDialog by remember { mutableStateOf(false) }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Photo Picker Launcher
+    // Launcher aggiornato: salva solo l'URI locale senza fare l'upload immediato
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
-        uri?.let {
-            viewModel.uploadProfilePicture(it) {
-                Toast.makeText(context, "Photo updated!", Toast.LENGTH_SHORT).show()
-            }
-        }
+        uri?.let { tempPhotoUri = it }
     }
 
-    // Check for unsaved changes
-    val hasUnsavedChanges = remember(tempName, tempSurname, tempWeight, tempGoal, uiState) {
+    // Verifica modifiche includendo la nuova foto temporanea
+    val hasUnsavedChanges = remember(tempName, tempSurname, tempWeight, tempGoal, tempPhotoUri, uiState) {
         tempName != uiState.name ||
                 tempSurname != uiState.surname ||
                 tempWeight != uiState.weight ||
-                tempGoal != uiState.goal
+                tempGoal != uiState.goal ||
+                tempPhotoUri != null
     }
 
     BackHandler(enabled = hasUnsavedChanges) {
         showExitDialog = true
     }
 
-    // Initial data synchronization
     LaunchedEffect(uiState) {
-        if (tempName.isEmpty()) tempName = uiState.name
-        if (tempSurname.isEmpty()) tempSurname = uiState.surname
-        if (tempWeight.isEmpty()) tempWeight = uiState.weight
-        if (tempGoal == "10000" && uiState.goal != "10000") tempGoal = uiState.goal
+        tempName = uiState.name
+        tempSurname = uiState.surname
+        tempWeight = uiState.weight
+        tempGoal = uiState.goal
     }
 
     Scaffold(
@@ -115,47 +113,36 @@ fun EditProfileScreen(navController: NavHostController) {
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // --- AVATAR WITH EDIT ICON ---
+            // --- AVATAR SECTION ---
             Box(
                 modifier = Modifier.size(110.dp),
                 contentAlignment = Alignment.Center
             ) {
-                // Main Circle
                 Surface(
                     modifier = Modifier.size(100.dp),
                     shape = CircleShape,
-                    color = Color(0xFFFF8A00),
-                    border = BorderStroke(2.dp, Color.White),
+                    color = Color.White,
+                    border = BorderStroke(2.dp, Color.LightGray),
                     shadowElevation = 4.dp
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (uiState.profilePhotoUri != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(uiState.profilePhotoUri) // L'URI che arriva dal ViewModel
-                                    .crossfade(true)               // Effetto sfumato piacevole al cambio
-                                    .build(),
-                                contentDescription = "Foto Profilo",
-                                modifier = Modifier
-                                    .size(120.dp)                  // Regola la dimensione come preferisci
-                                    .clip(CircleShape),
-                                contentScale = ContentScale.Crop,
-                                // Questo è il segreto: se l'URI cambia, Coil ricarica l'immagine
-                                placeholder = painterResource(R.drawable.ic_profile_placeholder), // Una risorsa di default se non c'è foto
-                                error = painterResource(R.drawable.ic_profile_placeholder)        // Se c'è un errore di caricamento
-                            )
-                        } else {
-                            Text(
-                                text = tempName.take(1).uppercase().ifEmpty { "U" },
-                                style = MaterialTheme.typography.displayMedium,
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    // Se c'è una foto temporanea o una già salvata, allora hasPhoto è true
+                    val hasPhoto = tempPhotoUri != null || uiState.profilePhotoUri != null
+
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            // Priorità alla foto temporanea appena scelta
+                            .data(tempPhotoUri ?: uiState.profilePhotoUri ?: R.drawable.ic_profile_placeholder)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .padding(if (hasPhoto) 0.dp else 25.dp),
+                        contentScale = if (hasPhoto) ContentScale.Crop else ContentScale.Fit
+                    )
                 }
 
-                // Pencil Icon Button
                 Surface(
                     modifier = Modifier
                         .size(32.dp)
@@ -182,7 +169,6 @@ fun EditProfileScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- EDIT FIELDS ---
             EditField("Name", tempName, { tempName = it }, Icons.Default.Person)
             Spacer(modifier = Modifier.height(16.dp))
             EditField("Surname", tempSurname, { tempSurname = it }, Icons.Default.Badge)
@@ -193,11 +179,7 @@ fun EditProfileScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // --- PASSWORD BUTTON ---
-            TextButton(
-                onClick = { showPasswordDialog = true },
-                modifier = Modifier.fillMaxWidth()
-            ) {
+            TextButton(onClick = { showPasswordDialog = true }, modifier = Modifier.fillMaxWidth()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Lock, null, tint = Color(0xFFFF8A00), modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -207,12 +189,23 @@ fun EditProfileScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- SAVE BUTTON ---
+            // --- SAVE BUTTON LOGIC ---
             Button(
                 onClick = {
-                    viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
-                        Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
-                        navController.popBackStack()
+                    if (tempPhotoUri != null) {
+                        // Prima carichiamo la foto, poi salviamo i dati testuali
+                        viewModel.uploadProfilePicture(tempPhotoUri!!) {
+                            viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
+                                Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
+                                navController.popBackStack()
+                            }
+                        }
+                    } else {
+                        // Nessuna nuova foto, salviamo solo i campi testo
+                        viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
+                            Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -230,93 +223,53 @@ fun EditProfileScreen(navController: NavHostController) {
         }
     }
 
-    // --- CHANGE PASSWORD DIALOG ---
+    // --- DIALOGS (Password) ---
     if (showPasswordDialog) {
         AlertDialog(
-            onDismissRequest = {
-                showPasswordDialog = false
-                passwordVisible = false
-            },
+            onDismissRequest = { showPasswordDialog = false },
             title = { Text("Change Password", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
-                    Text("Enter a new password (at least 6 characters).", fontSize = 14.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(16.dp))
                     OutlinedTextField(
                         value = newPassword,
                         onValueChange = { newPassword = it },
                         label = { Text("New Password") },
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
-                            val icon = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(icon, contentDescription = null, tint = Color(0xFFFF8A00))
+                                Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
                             }
                         },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        if (newPassword.length >= 6) {
-                            viewModel.changePassword(newPassword,
-                                onSuccess = {
-                                    showPasswordDialog = false
-                                    newPassword = ""
-                                    passwordVisible = false
-                                    Toast.makeText(context, "Password updated!", Toast.LENGTH_SHORT).show()
-                                },
-                                onError = { error ->
-                                    Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
-                                }
-                            )
-                        } else {
-                            Toast.makeText(context, "Minimum 6 characters!", Toast.LENGTH_SHORT).show()
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A00))
-                ) {
-                    Text("Update")
-                }
+                Button(onClick = {
+                    viewModel.changePassword(newPassword, onSuccess = {
+                        showPasswordDialog = false
+                        Toast.makeText(context, "Password updated!", Toast.LENGTH_SHORT).show()
+                    }, onError = { /* handle error */ })
+                }) { Text("Update") }
             },
-            dismissButton = {
-                TextButton(onClick = {
-                    showPasswordDialog = false
-                    passwordVisible = false
-                }) {
-                    Text("Cancel", color = Color.Gray)
-                }
-            },
-            containerColor = Color.White,
-            shape = RoundedCornerShape(28.dp)
+            dismissButton = { TextButton(onClick = { showPasswordDialog = false }) { Text("Cancel") } }
         )
     }
 
-    // --- UNSAVED CHANGES DIALOG ---
+    // --- DIALOGS (Exit) ---
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
             title = { Text("Unsaved Changes", fontWeight = FontWeight.Bold) },
-            text = { Text("You have unsaved changes. Are you sure you want to exit? Your progress will be lost.") },
+            text = { Text("You have unsaved changes. Exit anyway?") },
             confirmButton = {
-                TextButton(onClick = {
-                    showExitDialog = false
-                    navController.popBackStack()
-                }) {
-                    Text("Exit", color = Color.Red, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { navController.popBackStack() }) {
+                    Text("Exit", color = Color.Red)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) {
-                    Text("Keep Editing", color = Color.Gray)
-                }
-            },
-            shape = RoundedCornerShape(28.dp),
-            containerColor = Color.White
+                TextButton(onClick = { showExitDialog = false }) { Text("Stay") }
+            }
         )
     }
 }

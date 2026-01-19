@@ -71,12 +71,17 @@ class ProfileViewModel : ViewModel() {
 
         db.collection("users").document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
+                Log.e("DEBUG_FOTO", "Errore Firestore: ${error.message}") // <--- LOG ERRORE
                 _uiState.update { it.copy(message = "Error: ${error.message}") }
                 return@addSnapshotListener
             }
 
             if (snapshot != null && snapshot.exists()) {
                 val photoUrl = snapshot.getString("photoUrl")
+
+                // --- AGGIUNGI QUESTA RIGA QUI ---
+                Log.d("DEBUG_FOTO", "URL recuperato dal DB: $photoUrl")
+
                 _uiState.update {
                     it.copy(
                         name = snapshot.getString("name") ?: "",
@@ -87,6 +92,8 @@ class ProfileViewModel : ViewModel() {
                         profilePhotoUri = photoUrl?.toUri()
                     )
                 }
+            } else {
+                Log.d("DEBUG_FOTO", "Il documento non esiste per l'UID: $uid")
             }
         }
     }
