@@ -56,23 +56,22 @@ fun RegistrationScreen(navController: NavHostController) {
 
     Box(modifier = Modifier.fillMaxSize().background(backgroundGradient)) {
         // --- BARRA FISSA ANIMATA ---
+        val progress by remember(currentStep) {
+            derivedStateOf { currentStep / 3f }
+        }
+
         AnimatedVisibility(
             visible = currentStep > 0,
             enter = fadeIn(animationSpec = tween(1000)) + expandVertically(),
             exit = fadeOut(animationSpec = tween(1000)) + shrinkVertically()
         ) {
-            // Usiamo Column invece di Box per far sì che lo Spacer spinga davvero la barra
-            Column(
+            Column( // Usiamo Column come suggerito prima per gestire meglio lo spazio
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .padding(top = 80.dp) // Qui regoli quanto deve stare bassa rispetto al bordo alto
+                    .padding(top = 80.dp) // Abbassata per il Pixel 9 Pro
             ) {
-                val progress = currentStep / 3f
-
-                // Se vuoi ancora più spazio tra il bordo e la barra, usa questo:
-                //Spacer(modifier = Modifier.height(20.dp))
-
+                // 2. Passa il valore già calcolato
                 SteplyProgressBar(progress)
             }
         }
@@ -295,7 +294,7 @@ fun StepBio(
 
         Column(modifier = Modifier.weight(2.8f)) {
             CustomLabel("Name")
-            TextField(value = name, onValueChange = onNameChange, placeholder = { Text("Your name") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = TextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent), singleLine = true)
+            TextField(value = name, onValueChange = onNameChange, placeholder = { Text("Your Name") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = TextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent), singleLine = true)
             Spacer(modifier = Modifier.height(16.dp))
             CustomLabel("Surname")
             TextField(value = surname, onValueChange = onSurnameChange, placeholder = { Text("Your Surname") }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = TextFieldDefaults.colors(focusedContainerColor = Color.White, unfocusedContainerColor = Color.White, focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent), singleLine = true)
@@ -396,15 +395,17 @@ fun StepGoalPicker(goal: String, onGoalChange: (String) -> Unit) {
     val haptic = LocalHapticFeedback.current
     val flingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
-    LaunchedEffect(listState.firstVisibleItemIndex) {
-        val selectedIndex = listState.firstVisibleItemIndex
-        if (selectedIndex in stepsOptions.indices) {
-            val selectedValue = stepsOptions[selectedIndex]
-            if (selectedValue != goal) {
-                onGoalChange(selectedValue)
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .collect { selectedIndex ->
+                if (selectedIndex in stepsOptions.indices) {
+                    val selectedValue = stepsOptions[selectedIndex]
+                    if (selectedValue != goal) {
+                        onGoalChange(selectedValue)
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                }
             }
-        }
     }
 
     Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
