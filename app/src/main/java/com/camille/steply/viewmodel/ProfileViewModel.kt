@@ -14,11 +14,9 @@ data class ProfileUiState(
     val username: String = "",
     val name: String = "",
     val surname: String = "",
-    val password: String = "",
     val weight: String = "",
     val goal: String = "10000",
     val profilePhotoUri: Uri? = null,
-    val isPasswordVisible: Boolean = false,
     val isSaving: Boolean = false,
     val message: String? = null
 )
@@ -28,24 +26,48 @@ class ProfileViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState
 
-    // Riferimenti a Firebase
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val db: FirebaseFirestore by lazy { FirebaseFirestore.getInstance() }
     private val storage: FirebaseStorage by lazy { FirebaseStorage.getInstance() }
 
     init {
-        //per forzare il logout:
-        // 1. levare il commento sottostante per forzare il Logout > run
-        //2. commenta di nuovo > run
-
-        //auth.signOut()
-
         if (auth.currentUser != null) {
             loadUserData()
         }
     }
 
-    // FUNZIONE PER LA SCHERMATA DI REGISTRAZIONE
+    /**
+     * Carica i dati dell'utente loggato da Firestore
+     */
+    private fun loadUserData() {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Usiamo addSnapshotListener invece di get()
+        db.collection("users").document(uid).addSnapshotListener { snapshot, error ->
+            if (error != null) {
+                _uiState.update { it.copy(message = "Errore: ${error.message}") }
+                return@addSnapshotListener
+            }
+
+            if (snapshot != null && snapshot.exists()) {
+                val photoUrl = snapshot.getString("photoUrl")
+                _uiState.update {
+                    it.copy(
+                        name = snapshot.getString("name") ?: "",
+                        surname = snapshot.getString("surname") ?: "",
+                        username = snapshot.getString("username") ?: "",
+                        weight = snapshot.get("weight")?.toString() ?: "",
+                        goal = snapshot.get("dailyGoal")?.toString() ?: "10,000",
+                        profilePhotoUri = if (photoUrl != null) Uri.parse(photoUrl) else null
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Registrazione nuovo utente
+     */
     fun registerUser(
         name: String,
         surname: String,
@@ -57,15 +79,12 @@ class ProfileViewModel : ViewModel() {
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
-        // Indica alla UI che il caricamento è iniziato
         _uiState.update { it.copy(isSaving = true) }
 
-        // 1. Creazione account in Firebase Authentication
         auth.createUserWithEmailAndPassword(email, pass)
             .addOnSuccessListener { result ->
                 val uid = result.user?.uid ?: return@addOnSuccessListener
 
-                // 2. Preparazione della mappa dati con i nuovi campi
                 val userData = mapOf(
                     "email" to email,
                     "name" to name,
@@ -77,7 +96,6 @@ class ProfileViewModel : ViewModel() {
                     "createdAt" to com.google.firebase.Timestamp.now()
                 )
 
-                // 3. Salvataggio su Firestore Database
                 db.collection("users").document(uid).set(userData)
                     .addOnSuccessListener {
                         _uiState.update { it.copy(isSaving = false) }
@@ -85,184 +103,81 @@ class ProfileViewModel : ViewModel() {
                     }
                     .addOnFailureListener {
                         _uiState.update { it.copy(isSaving = false) }
-                        onError("Errore durante il salvataggio dei dati nel database")
+                        onError("Database save error")
                     }
             }
             .addOnFailureListener { e ->
                 _uiState.update { it.copy(isSaving = false) }
-                onError(e.localizedMessage ?: "Errore durante la creazione dell'account")
+                onError(e.localizedMessage ?: "Registration failed")
             }
     }
 
-    // FUNZIONE PER IL LOGIN
-    fun loginUser(
-        email: String,
-        pass: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        // Indica alla UI che stiamo lavorando
+    /**
+     * Login utente esistente
+     */
+    fun loginUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         _uiState.update { it.copy(isSaving = true, message = null) }
-
         auth.signInWithEmailAndPassword(email, pass)
             .addOnSuccessListener {
-                // Login riuscito
                 _uiState.update { it.copy(isSaving = false) }
                 onSuccess()
             }
             .addOnFailureListener { e ->
-                // Login fallito
                 _uiState.update { it.copy(isSaving = false) }
-
-                // Messaggio in base all'errore
-                val errorMsg = when {
-                    e.message?.contains("password") == true -> "Incorrect password. Please try again!"
-                    e.message?.contains("no user") == true -> "Invalid email of password"
-                    else -> e.localizedMessage ?: "An error occurred during login"
-                }
-
+                val errorMsg = if (e.message?.contains("password") == true) "Incorrect password" else "Login failed"
                 _uiState.update { it.copy(message = errorMsg) }
                 onError(errorMsg)
             }
     }
 
-    fun updateMessage(newMessage: String?) {
-        _uiState.update { it.copy(message = newMessage) }
-    }
-
-    private fun loadUserData() {
-        val uid = auth.currentUser?.uid ?: return
-
-        db.collection("users").document(uid).get()
-            .addOnSuccessListener { document ->
-                if (document != null && document.exists()) {
-                    // Recuperiamo i dati dal database
-                    val name = document.getString("name") ?: ""
-                    val surname = document.getString("surname") ?: ""
-                    val username = document.getString("username") ?: ""
-                    val weight = document.get("weight")?.toString() ?: ""
-                    val goal = document.get("dailyGoal")?.toString() ?: "10000"
-                    val photoUrl = document.getString("photoUrl")
-
-                    // Aggiorniamo la UI con i dati reali
-                    _uiState.update {
-                        it.copy(
-                            name = name,
-                            surname = surname,
-                            username = username,
-                            weight = weight,
-                            goal = goal,
-                            // Se c'è una foto, la carichiamo tramite Uri (coil la gestirà)
-                            profilePhotoUri = if (photoUrl != null) Uri.parse(photoUrl) else null
-                        )
-                    }
-                }
+    /**
+     * Verifica disponibilità email
+     */
+    fun checkEmailAndNext(email: String, onAvailable: () -> Unit) {
+        if (!email.contains("@") || !email.contains(".")) {
+            updateMessage("Invalid email format.")
+            return
+        }
+        _uiState.update { it.copy(isSaving = true, message = null) }
+        auth.fetchSignInMethodsForEmail(email)
+            .addOnSuccessListener { result ->
+                _uiState.update { it.copy(isSaving = false) }
+                if (result.signInMethods?.isEmpty() == true) onAvailable()
+                else updateMessage("Email already in use.")
             }
             .addOnFailureListener { e ->
-                _uiState.update { it.copy(message = "Errore caricamento: ${e.message}") }
+                _uiState.update { it.copy(isSaving = false, message = e.localizedMessage) }
             }
     }
 
-    // Funzioni di cambio stato
-    fun onUsernameChange(value: String) = _uiState.update { it.copy(username = value) }
-    fun onNameChange(value: String) = _uiState.update { it.copy(name = value) }
-    fun onSurnameChange(value: String) = _uiState.update { it.copy(surname = value) }
+    /**
+     * Aggiornamento profilo (Edit Profile)
+     */
+    fun updateFullProfile(newName: String, newSurname: String, newWeight: String, newGoal: String, onSuccess: () -> Unit) {
+        val uid = auth.currentUser?.uid ?: return
+        _uiState.update { it.copy(isSaving = true) }
 
-    fun onPasswordChange(value: String) {
-        _uiState.update {
-            it.copy(
-                password = value,
-                message = null
-            )
-        } // message = null pulisce l'errore
+        val userMap = mapOf(
+            "name" to newName,
+            "surname" to newSurname,
+            "weight" to newWeight,
+            "dailyGoal" to (newGoal.toIntOrNull() ?: 10000)
+        )
+
+        db.collection("users").document(uid).set(userMap, SetOptions.merge())
+            .addOnSuccessListener {
+                // FONDAMENTALE: Ricarica i dati per aggiornare lo Stato Globale
+                loadUserData()
+
+                _uiState.update { it.copy(isSaving = false) }
+                onSuccess() // Torna indietro alla pagina Profilo
+            }
     }
 
-    fun onTogglePasswordVisibility() =
-        _uiState.update { it.copy(isPasswordVisible = !it.isPasswordVisible) }
-
-    fun onPhotoSelected(uri: Uri?) = _uiState.update { it.copy(profilePhotoUri = uri) }
+    fun updateMessage(newMessage: String?) = _uiState.update { it.copy(message = newMessage) }
 
     fun logout(onLogout: () -> Unit) {
         auth.signOut()
         onLogout()
-    }
-
-    /**
-     * FUNZIONE CHE VIENE CHIAMATA DAL TASTO "SALVA" NELLA UI
-     */
-    fun saveProfile() {
-        val s = _uiState.value
-        saveProfileToFirebase(s.username, s.name, s.surname, s.profilePhotoUri)
-    }
-
-    /**
-     * LOGICA DI SALVATAGGIO SU CLOUD (MILANO europe-west8)
-     */
-    private fun saveProfileToFirebase(
-        username: String,
-        name: String,
-        surname: String,
-        photoUri: Uri?
-    ) {
-        val uid = auth.currentUser?.uid ?: return
-        if (photoUri != null && photoUri.toString().startsWith("content")) {
-            val storageRef = storage.reference.child("profilePhotos/$uid.jpg")
-            storageRef.putFile(photoUri).continueWithTask { storageRef.downloadUrl }
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) writeToFirestore(
-                        uid,
-                        username,
-                        name,
-                        surname,
-                        task.result.toString()
-                    )
-                }
-        } else {
-            writeToFirestore(uid, username, name, surname, photoUri?.toString())
-        }
-    }
-
-    private fun writeToFirestore(
-        uid: String,
-        username: String,
-        name: String,
-        surname: String,
-        photoUrl: String?
-    ) {
-        val userMap = mutableMapOf("username" to username, "name" to name, "surname" to surname)
-        photoUrl?.let { userMap["photoUrl"] = it }
-        db.collection("users").document(uid).set(userMap, SetOptions.merge())
-    }
-
-    fun checkEmailAndNext(email: String, onAvailable: () -> Unit) {
-        // 1. Validazione formale dell'email
-        if (!email.contains("@") || !email.contains(".")) {
-            updateMessage("Please enter a valid email address.")
-            return
-        }
-
-        // 2. Avvio caricamento (mostra il cerchietto nel bottone)
-        _uiState.update { it.copy(isSaving = true, message = null) }
-
-        // 3. Controllo reale su Firebase
-        auth.fetchSignInMethodsForEmail(email)
-            .addOnSuccessListener { result ->
-                _uiState.update { it.copy(isSaving = false) }
-
-                val methods = result.signInMethods ?: emptyList<String>()
-
-                if (methods.isEmpty()) {
-                    // Email libera, procediamo allo step successivo
-                    onAvailable()
-                } else {
-                    // Email già occupata
-                    updateMessage("An account with this email already exists.")
-                }
-            }
-            .addOnFailureListener { e ->
-                _uiState.update { it.copy(isSaving = false) }
-                // Messaggio generico in caso di problemi di rete
-                updateMessage("Verification failed: ${e.localizedMessage}")
-            }
     }
 }
