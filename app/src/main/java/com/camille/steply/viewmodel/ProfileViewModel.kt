@@ -244,4 +244,24 @@ class ProfileViewModel : ViewModel() {
                 // I dati si aggiorneranno automaticamente grazie allo snapshotListener che abbiamo già
             }
     }
+
+    fun changePassword(newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val user = FirebaseAuth.getInstance().currentUser
+
+        if (user != null) {
+            user.updatePassword(newPassword)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        onSuccess()
+                        println("Password aggiornata con successo")
+                    } else {
+                        val errorMsg = task.exception?.message ?: "Errore durante il cambio password"
+                        onError(errorMsg)
+                        println("Errore Firebase: $errorMsg")
+                    }
+                }
+        } else {
+            onError("Utente non autenticato")
+        }
+    }
 }

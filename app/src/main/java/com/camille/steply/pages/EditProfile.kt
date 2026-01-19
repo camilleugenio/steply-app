@@ -1,5 +1,6 @@
 package com.camille.steply.pages
 
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -10,18 +11,18 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Flag
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Scale
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -33,17 +34,21 @@ import com.camille.steply.viewmodel.ProfileViewModel
 fun EditProfileScreen(navController: NavHostController) {
     val viewModel: ProfileViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
 
-    // Local states for input fields
+    // --- LOCAL STATES ---
     var tempName by remember { mutableStateOf(uiState.name) }
     var tempSurname by remember { mutableStateOf(uiState.surname) }
     var tempWeight by remember { mutableStateOf(uiState.weight) }
     var tempGoal by remember { mutableStateOf(uiState.goal) }
 
-    // State for the confirmation dialog
+    // Dialog states and password visibility
     var showExitDialog by remember { mutableStateOf(false) }
+    var showPasswordDialog by remember { mutableStateOf(false) }
+    var newPassword by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
 
-    // Check if any data has been modified compared to the original state
+    // Check for unsaved changes
     val hasUnsavedChanges = remember(tempName, tempSurname, tempWeight, tempGoal, uiState) {
         tempName != uiState.name ||
                 tempSurname != uiState.surname ||
@@ -51,12 +56,12 @@ fun EditProfileScreen(navController: NavHostController) {
                 tempGoal != uiState.goal
     }
 
-    // Handles the physical back button or swipe gesture
+    // Handle physical back button
     BackHandler(enabled = hasUnsavedChanges) {
         showExitDialog = true
     }
 
-    // Sync local states when data is loaded from the database
+    // Initial data synchronization
     LaunchedEffect(uiState) {
         if (tempName.isEmpty()) tempName = uiState.name
         if (tempSurname.isEmpty()) tempSurname = uiState.surname
@@ -71,11 +76,8 @@ fun EditProfileScreen(navController: NavHostController) {
                 title = { Text("Edit Profile", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = {
-                        if (hasUnsavedChanges) {
-                            showExitDialog = true
-                        } else {
-                            navController.popBackStack()
-                        }
+                        if (hasUnsavedChanges) showExitDialog = true
+                        else navController.popBackStack()
                     }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
@@ -94,7 +96,7 @@ fun EditProfileScreen(navController: NavHostController) {
         ) {
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Avatar with dynamic initial
+            // Avatar
             Box(
                 modifier = Modifier
                     .size(100.dp)
@@ -111,56 +113,40 @@ fun EditProfileScreen(navController: NavHostController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // --- INPUT FIELDS ---
-
-            EditField(
-                label = "Name",
-                value = tempName,
-                onValueChange = { tempName = it },
-                icon = Icons.Default.Person
-            )
-
+            // --- EDIT FIELDS ---
+            EditField("Name", tempName, { tempName = it }, Icons.Default.Person)
             Spacer(modifier = Modifier.height(16.dp))
-
-            EditField(
-                label = "Surname",
-                value = tempSurname,
-                onValueChange = { tempSurname = it },
-                icon = Icons.Default.Badge
-            )
-
+            EditField("Surname", tempSurname, { tempSurname = it }, Icons.Default.Badge)
             Spacer(modifier = Modifier.height(16.dp))
-
-            EditField(
-                label = "Weight (kg)",
-                value = tempWeight,
-                onValueChange = { tempWeight = it },
-                icon = Icons.Default.Scale,
-                keyboardType = KeyboardType.Number
-            )
-
+            EditField("Weight (kg)", tempWeight, { tempWeight = it }, Icons.Default.Scale, KeyboardType.Number)
             Spacer(modifier = Modifier.height(16.dp))
+            EditField("Daily Step Goal", tempGoal, { tempGoal = it }, Icons.Default.Flag, KeyboardType.Number)
 
-            EditField(
-                label = "Daily Step Goal",
-                value = tempGoal,
-                onValueChange = { tempGoal = it },
-                icon = Icons.Default.Flag,
-                keyboardType = KeyboardType.Number
-            )
+            Spacer(modifier = Modifier.height(24.dp))
 
-            Spacer(modifier = Modifier.height(40.dp))
+            // --- PASSWORD BUTTON ---
+            TextButton(
+                onClick = { showPasswordDialog = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Lock, null, tint = Color(0xFFFF8A00), modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Change Password", color = Color(0xFFFF8A00), fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
 
             // --- SAVE BUTTON ---
             Button(
                 onClick = {
                     viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
+                        Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
                         navController.popBackStack()
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A00)),
                 enabled = !uiState.isSaving
@@ -171,23 +157,88 @@ fun EditProfileScreen(navController: NavHostController) {
                     Text("Save Changes", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
-
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 
-    // Confirmation Dialog for unsaved changes
+    // --- CHANGE PASSWORD DIALOG ---
+    if (showPasswordDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showPasswordDialog = false
+                passwordVisible = false
+            },
+            title = { Text("Change Password", fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text("Enter a new password (at least 6 characters).", fontSize = 14.sp, color = Color.Gray)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = newPassword,
+                        onValueChange = { newPassword = it },
+                        label = { Text("New Password") },
+                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            val icon = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(icon, contentDescription = null, tint = Color(0xFFFF8A00))
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newPassword.length >= 6) {
+                            viewModel.changePassword(newPassword,
+                                onSuccess = {
+                                    showPasswordDialog = false
+                                    newPassword = ""
+                                    passwordVisible = false
+                                    Toast.makeText(context, "Password updated!", Toast.LENGTH_SHORT).show()
+                                },
+                                onError = { error ->
+                                    Toast.makeText(context, "Error: $error", Toast.LENGTH_LONG).show()
+                                }
+                            )
+                        } else {
+                            Toast.makeText(context, "Minimum 6 characters!", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF8A00))
+                ) {
+                    Text("Update")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPasswordDialog = false
+                    passwordVisible = false
+                }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    // --- UNSAVED CHANGES DIALOG ---
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },
             title = { Text("Unsaved Changes", fontWeight = FontWeight.Bold) },
-            text = { Text("You have unsaved changes. \nAre you sure you want to go back? \nYour changes will be lost.") },
+            text = { Text("You have unsaved changes. Are you sure you want to exit? Your progress will be lost.") },
             confirmButton = {
                 TextButton(onClick = {
                     showExitDialog = false
                     navController.popBackStack()
                 }) {
-                    Text("Discard", color = Color.Red, fontWeight = FontWeight.Bold)
+                    Text("Exit", color = Color.Red, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
