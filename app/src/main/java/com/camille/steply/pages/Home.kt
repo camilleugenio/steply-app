@@ -96,7 +96,7 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
     val uiState by homeViewModel.uiState.collectAsState()
 
     // bell = goal notification
-    val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
+    //val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
 
     // Responsive
     val cfg = LocalConfiguration.current
@@ -205,8 +205,8 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
-                goalNotifEnabled = goalNotifEnabled,
-                onToggleGoalNotif = { enabled -> homeViewModel.setGoalNotificationEnabled(enabled) },
+                //goalNotifEnabled = goalNotifEnabled,
+                //onToggleGoalNotif = { enabled -> homeViewModel.setGoalNotificationEnabled(enabled) },
                 onSettings = { },
                 onCalendar = { showCalendar = true }
             )
@@ -258,8 +258,8 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 private fun TopBarLight(
     placeText: String,
     weatherText: String,
-    goalNotifEnabled: Boolean,
-    onToggleGoalNotif: (Boolean) -> Unit,
+    //goalNotifEnabled: Boolean,
+    //onToggleGoalNotif: (Boolean) -> Unit,
     onCalendar: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -303,16 +303,16 @@ private fun TopBarLight(
                     )
                 }
 
-                IconToggleButton(
-                    checked = goalNotifEnabled,
-                    onCheckedChange = onToggleGoalNotif
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Goal notifications",
-                        tint = if (goalNotifEnabled) Accent else Color.Gray
-                    )
-                }
+//                IconToggleButton(
+//                    checked = goalNotifEnabled,
+//                    onCheckedChange = onToggleGoalNotif
+//                ) {
+//                    Icon(
+//                        imageVector = Icons.Default.Notifications,
+//                        contentDescription = "Goal notifications",
+//                        tint = if (goalNotifEnabled) Accent else Color.Gray
+//                    )
+//                }
             }
         }
     }

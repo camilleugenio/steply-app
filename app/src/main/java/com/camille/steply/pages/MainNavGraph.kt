@@ -77,7 +77,7 @@ fun MainNavGraph() {
         }
 
         composable(Routes.PROFILE) {
-            Profile(navController = navController)
+            Profile(navController = navController, homeViewModel = homeViewModel)
         }
 
         composable(Routes.EDITPROFILE) {

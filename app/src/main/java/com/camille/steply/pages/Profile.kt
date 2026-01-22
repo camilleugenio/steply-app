@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Flag
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.camille.steply.viewmodel.ProfileViewModel
+import com.camille.steply.viewmodel.HomeViewModel
 import androidx.compose.ui.draw.clip
 
 
@@ -31,9 +33,11 @@ private val BgColor = Color(0xFFF4F1EC)
 private val AccentColor = Color(0xFFFF8A00)
 
 @Composable
-fun Profile(navController: NavHostController) {
+fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
     val viewModel: ProfileViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+
+    val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
 
     var showMenu by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -130,6 +134,16 @@ fun Profile(navController: NavHostController) {
                             navController.navigate("weight_history")
                         }
                     )
+
+                    ProfileToggleRowItem(
+                        label = "Daily Goal Notification",
+                        icon = Icons.Default.Notifications,
+                        checked = goalNotifEnabled,
+                        onCheckedChange = { enabled ->
+                            homeViewModel.setGoalNotificationEnabled(enabled)
+                        }
+                    )
+
                 }
             }
         }
@@ -304,6 +318,40 @@ fun ProfileRowItem(
                 contentDescription = null,
                 tint = Color.LightGray,
                 modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun ProfileToggleRowItem(
+    label: String,
+    icon: ImageVector,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = Color.Black.copy(0.6f), modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+
+            Switch(
+                checked = checked,
+                onCheckedChange = onCheckedChange,
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = Color(0xFF34C759),
+                    checkedThumbColor = Color.White,
+                    uncheckedTrackColor = Color(0xFFE6E6EA),
+                    uncheckedThumbColor = Color.White
+                )
             )
         }
     }
