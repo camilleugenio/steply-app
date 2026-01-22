@@ -63,7 +63,13 @@ fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
                     selectedIndex = 2,
                     onSelect = { index ->
                         when (index) {
-                            0 -> navController.navigate("steps") { launchSingleTop = true }
+                            0 -> {
+                                homeViewModel.selectToday()
+                                val popped = navController.popBackStack(Routes.STEPS, inclusive = false)
+                                if (!popped) {
+                                    navController.navigate(Routes.STEPS) { launchSingleTop = true }
+                                }
+                            }
                             1 -> navController.navigate("activity") { launchSingleTop = true }
                             2 -> { /* Stay */ }
                         }

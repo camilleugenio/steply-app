@@ -165,6 +165,7 @@ fun ActivityScreen(
                     onSelect = { index ->
                         when (index) {
                             0 -> {
+                                homeViewModel.selectToday()
                                 val popped = navController.popBackStack(Routes.STEPS, inclusive = false)
                                 if (!popped) {
                                     navController.navigate(Routes.STEPS) { launchSingleTop = true }
