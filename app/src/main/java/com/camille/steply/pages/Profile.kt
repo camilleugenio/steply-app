@@ -36,8 +36,11 @@ private val AccentColor = Color(0xFFFF8A00)
 fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
     val viewModel: ProfileViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
+    val homeState by homeViewModel.uiState.collectAsState()
 
     val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
+
+    val goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
 
     var showMenu by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
@@ -121,9 +124,10 @@ fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
                 ) {
                     // 1. GOAL PROGRESS CARD (Static / Informative)
                     GoalProgressCard(
-                        currentSteps = 6140, // Placeholder: implement real step tracking later
-                        goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
+                        currentSteps = homeState.steps,
+                        goalSteps = goalSteps
                     )
+
 
                     // 2. WEIGHT ROW (Interactive with Chevron)
                     ProfileRowItem(
