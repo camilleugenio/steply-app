@@ -28,7 +28,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -220,7 +219,7 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                 dailyGoal = dailyGoal,
                 km = uiState.selectedKm,
                 kcal = uiState.selectedKcal,
-                onRefresh = { }
+                onRefresh = { homeViewModel.simulateStepsDebug() }
             )
 
             Spacer(Modifier.height(12.dp))
@@ -330,36 +329,16 @@ private fun StepsMainCard(
     onRefresh: () -> Unit
 ) {
     val targetProgress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
-
-    var prevProgress by remember { mutableStateOf(targetProgress) }
-    val direction = if (targetProgress >= prevProgress) 1f else -1f
-
     val animatedProgress by animateFloatAsState(
         targetValue = targetProgress,
         animationSpec = tween(durationMillis = 650),
         label = "ringProgress"
     )
 
-    LaunchedEffect(targetProgress) { prevProgress = targetProgress }
-
     val animatedSteps by animateIntAsState(
         targetValue = steps,
         animationSpec = tween(450),
         label = "steps"
-    )
-
-    val kmDouble = km.toDoubleOrNull() ?: 0.0
-    val animatedKm by animateFloatAsState(
-        targetValue = kmDouble.toFloat(),
-        animationSpec = tween(450),
-        label = "km"
-    )
-
-    val kcalInt = kcal.toIntOrNull() ?: 0
-    val animatedKcal by animateIntAsState(
-        targetValue = kcalInt,
-        animationSpec = tween(450),
-        label = "kcal"
     )
 
     Surface(
@@ -369,72 +348,57 @@ private fun StepsMainCard(
         shadowElevation = 18.dp
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
+            // Tasto Refresh per Debug
             IconButton(
                 onClick = onRefresh,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(6.dp)
+                    .padding(8.dp)
                     .size(40.dp)
             ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Debug",
+                    tint = TextSecondary.copy(alpha = 0.3f)
+                )
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 16.dp),
+                    .padding(horizontal = 18.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                AnimatedContent(
-                    targetState = dateLabel,
-                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-                    label = "dayLabel"
-                ) { label ->
-                    Text(label, color = TextSecondary, fontSize = 16.sp)
-                }
+                Text(dateLabel, color = TextSecondary, fontSize = 16.sp)
+                Text(
+                    dateValue,
+                    color = TextPrimary,
+                    fontSize = 28.sp, // Leggermente ridotto per dare respiro
+                    fontWeight = FontWeight.SemiBold
+                )
 
-                AnimatedContent(
-                    targetState = dateValue,
-                    transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-                    label = "dateValue"
-                ) { value ->
-                    Text(
-                        value,
-                        color = TextPrimary,
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
+                Spacer(Modifier.height(24.dp))
 
-                Spacer(Modifier.height(20.dp))
-
-                val progress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
-                val progressColor = progressColorForSteps(steps, dailyGoal)
+                val progressColor = if (steps >= dailyGoal && dailyGoal > 0) Color(0xFF4CAF50) else Accent
 
                 Box(
-                    modifier = Modifier.size(220.dp),
+                    modifier = Modifier.size(230.dp), // Aumentato leggermente il cerchio
                     contentAlignment = Alignment.Center
                 ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        val strokeWidth = 10.dp.toPx()
-                        val inset = strokeWidth / 2f
-
+                    Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
+                        val strokeWidth = 12.dp.toPx()
                         drawArc(
                             color = Color(0xFFE6E6EA),
                             startAngle = 0f,
                             sweepAngle = 360f,
                             useCenter = false,
-                            topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                            size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, size.height - strokeWidth),
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
-
                         drawArc(
                             color = progressColor,
                             startAngle = -90f,
-                            sweepAngle = 360f * animatedProgress * direction,
+                            sweepAngle = 360f * animatedProgress,
                             useCenter = false,
-                            topLeft = androidx.compose.ui.geometry.Offset(inset, inset),
-                            size = androidx.compose.ui.geometry.Size(size.width - strokeWidth, size.height - strokeWidth),
                             style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
                     }
@@ -443,28 +407,48 @@ private fun StepsMainCard(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(
-                            text = animatedSteps.toString(),
-                            color = TextPrimary,
-                            fontSize = 64.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Text(text = "Steps", color = TextSecondary, fontSize = 14.sp)
-
-                        Spacer(Modifier.height(16.dp))
-
-                        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                            InfoMini(value = String.format(Locale.getDefault(), "%.2f", animatedKm), label = "km")
-                            InfoMini(value = animatedKcal.toString(), label = "calories")
+                        // --- LOGICA DIMENSIONE FONT DINAMICA ---
+                        val stepsStr = animatedSteps.toString()
+                        val stepsFontSize = when {
+                            stepsStr.length >= 6 -> 40.sp
+                            stepsStr.length == 5 -> 48.sp
+                            else -> 60.sp
                         }
 
-                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = stepsStr,
+                            color = TextPrimary,
+                            fontSize = stepsFontSize,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+
+                        Text(
+                            text = "Steps",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            modifier = Modifier.offset(y = (-4).dp)
+                        )
+
+                        Spacer(Modifier.height(12.dp))
+
+                        // Info Mini (Km e Kcal)
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            InfoMini(value = km, label = "km")
+                            Box(modifier = Modifier.size(4.dp).background(TextSecondary.copy(0.3f), CircleShape))
+                            InfoMini(value = kcal, label = "kcal")
+                        }
+
+                        Spacer(Modifier.height(8.dp))
 
                         Text(
                             text = "Goal: $dailyGoal",
-                            color = TextSecondary,
-                            fontSize = 12.sp
+                            color = TextSecondary.copy(alpha = 0.7f),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -848,7 +832,7 @@ private fun StepsCalendarSheetContent(
     dailyGoal: Int,
     stepsByDateIso: Map<String, Int>
 ) {
-    var selectedDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     Column(
         modifier = Modifier
@@ -924,8 +908,8 @@ private fun StepsCalendarSheetContent(
                 }
             }
 
-            val popupAlpha = remember { androidx.compose.animation.core.Animatable(0f) }
-            var popupDate by remember { mutableStateOf<java.time.LocalDate?>(null) }
+            val popupAlpha = remember { Animatable(0f) }
+            var popupDate by remember { mutableStateOf<LocalDate?>(null) }
 
             LaunchedEffect(selectedDate) {
                 if (selectedDate != null) {
@@ -964,13 +948,13 @@ private fun MonthCalendarCard(
     month: java.time.YearMonth,
     dailyGoal: Int,
     stepsByDateIso: Map<String, Int>,
-    selectedDate: java.time.LocalDate?,
-    onSelectDate: (java.time.LocalDate) -> Unit
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit
 ) {
     val locale = Locale.getDefault()
 
     val monthName = remember(month) {
-        month.month.getDisplayName(java.time.format.TextStyle.FULL, locale).lowercase(locale)
+        month.month.getDisplayName(TextStyle.FULL, locale).lowercase(locale)
     }
     val yearText = remember(month) { month.year.toString() }
 
@@ -1014,11 +998,11 @@ private fun MonthGrid(
     month: java.time.YearMonth,
     dailyGoal: Int,
     stepsByDateIso: Map<String, Int>,
-    selectedDate: java.time.LocalDate?,
-    onSelectDate: (java.time.LocalDate) -> Unit
+    selectedDate: LocalDate?,
+    onSelectDate: (LocalDate) -> Unit
 ) {
     val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
-    val today = remember { java.time.LocalDate.now() }
+    val today = remember { LocalDate.now() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -1092,14 +1076,14 @@ private fun MonthGrid(
 
 @Composable
 private fun DayCellColored(
-    date: java.time.LocalDate,
+    date: LocalDate,
     steps: Int,
     dailyGoal: Int,
     isSelected: Boolean,
     enabled: Boolean,
     onClick: () -> Unit
 ) {
-    val today = remember { java.time.LocalDate.now() }
+    val today = remember { LocalDate.now() }
     val isToday = date == today
     val isFuture = date.isAfter(today)
     val isZeroPast = !isFuture && steps == 0
@@ -1154,7 +1138,7 @@ private fun DayCellColored(
 
 @Composable
 private fun SelectedDayPopup(
-    date: java.time.LocalDate,
+    date: LocalDate,
     steps: Int,
     dailyGoal: Int,
     onClose: () -> Unit,
@@ -1163,7 +1147,7 @@ private fun SelectedDayPopup(
     val locale = Locale.getDefault()
 
     val monthName = remember(date) {
-        date.month.getDisplayName(java.time.format.TextStyle.FULL, locale)
+        date.month.getDisplayName(TextStyle.FULL, locale)
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(locale) else it.toString() }
     }
 
@@ -1293,7 +1277,7 @@ private fun StatPill(
 
 @Composable
 private fun FadeSwapPopupContent(
-    date: java.time.LocalDate,
+    date: LocalDate,
     steps: Int,
     dailyGoal: Int,
     onClose: () -> Unit
@@ -1301,7 +1285,7 @@ private fun FadeSwapPopupContent(
     var shownDate by remember { mutableStateOf(date) }
     var shownSteps by remember { mutableStateOf(steps) }
 
-    val alpha = remember { androidx.compose.animation.core.Animatable(1f) }
+    val alpha = remember { Animatable(1f) }
     var initialized by remember { mutableStateOf(false) }
 
     LaunchedEffect(date, steps, dailyGoal) {
@@ -1351,3 +1335,7 @@ private fun progressColorForSteps(steps: Int, dailyGoal: Int): Color {
         )
     }
 }
+
+/*private fun progressColorForSteps(steps: Int, dailyGoal: Int): Color {
+    return if (steps >= dailyGoal) Color(0xFF4CAF50) else Accent
+}*/

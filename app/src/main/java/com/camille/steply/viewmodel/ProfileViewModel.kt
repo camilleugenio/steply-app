@@ -1,7 +1,6 @@
 package com.camille.steply.viewmodel
 
 import android.net.Uri
-import android.util.Log
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -11,6 +10,7 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlin.math.roundToInt
 
 /**
  * UI State for the Profile
@@ -23,7 +23,13 @@ data class ProfileUiState(
     val goal: String = "10000",
     val profilePhotoUri: Uri? = null,
     val isSaving: Boolean = false,
-    val message: String? = null
+    val message: String? = null,
+
+    // per la overview card
+    val totalSteps: Long = 0,
+    val bestDaySteps: Int = 0,
+    val totalKm: String = "0.0",
+    val totalWorkouts: Int = 0
 )
 
 class ProfileViewModel : ViewModel() {
@@ -43,9 +49,10 @@ class ProfileViewModel : ViewModel() {
     }
 
     init {
-        // Carichiamo i dati utente solo se loggato
         if (auth.currentUser != null) {
             loadUserData()
+            // Ascoltiamo i cambiamenti della history in tempo reale
+            observeGlobalStats()
         }
     }
 
@@ -56,15 +63,12 @@ class ProfileViewModel : ViewModel() {
 
         db.collection("users").document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
-                Log.e("DEBUG_FOTO", "Errore Firestore: ${error.message}")
                 _uiState.update { it.copy(message = "Error: ${error.message}") }
                 return@addSnapshotListener
             }
 
             if (snapshot != null && snapshot.exists()) {
                 val photoUrl = snapshot.getString("photoUrl")
-                Log.d("DEBUG_FOTO", "URL recuperato dal DB: $photoUrl")
-
                 _uiState.update {
                     it.copy(
                         name = snapshot.getString("name") ?: "",
@@ -77,6 +81,39 @@ class ProfileViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    // --- AGGIORNATO: ASCOLTO STATISTICHE IN TEMPO REALE ---
+
+    private fun observeGlobalStats() {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Usiamo addSnapshotListener invece di get() così la OverviewCard
+        // si aggiorna istantaneamente mentre l'utente cammina
+        db.collection("users").document(uid).collection("history")
+            .addSnapshotListener { querySnapshot, error ->
+                if (error != null || querySnapshot == null) return@addSnapshotListener
+
+                var total = 0L
+                var best = 0
+
+                for (document in querySnapshot.documents) {
+                    val steps = document.getLong("steps")?.toInt() ?: 0
+                    total += steps
+                    if (steps > best) best = steps
+                }
+
+                // Calcolo KM con arrotondamento sicuro senza String.format problematici
+                val rawKm = (total * 0.74) / 1000.0
+                val roundedKm = (rawKm * 10).roundToInt() / 10.0
+
+                _uiState.update { it.copy(
+                    totalSteps = total,
+                    bestDaySteps = best,
+                    totalKm = roundedKm.toString(),
+                    totalWorkouts = querySnapshot.size()
+                )}
+            }
     }
 
     // --- PROFILE UPDATE FUNCTIONS ---
@@ -106,10 +143,7 @@ class ProfileViewModel : ViewModel() {
         val uid = auth.currentUser?.uid ?: return
         val storageRef = storage?.reference?.child("profile_pics/$uid.jpg")
 
-        if (storageRef == null) {
-            Log.e("Profile", "Storage non disponibile")
-            return
-        }
+        if (storageRef == null) return
 
         _uiState.update { it.copy(isSaving = true) }
 
@@ -123,7 +157,7 @@ class ProfileViewModel : ViewModel() {
                     val downloadUri = task.result.toString()
                     db.collection("users").document(uid).update("photoUrl", downloadUri)
                         .addOnSuccessListener {
-                            _uiState.update { it.copy(isSaving = false, profilePhotoUri = Uri.parse(downloadUri)) }
+                            _uiState.update { it.copy(isSaving = false, profilePhotoUri = downloadUri.toUri()) }
                             onSuccess(downloadUri)
                         }
                 } else {
@@ -132,20 +166,22 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    // --- ACCOUNT SETTINGS ---
-
     fun changePassword(newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+
         auth.currentUser?.updatePassword(newPassword)
+
             ?.addOnCompleteListener { task ->
+
                 if (task.isSuccessful) onSuccess()
+
                 else onError(task.exception?.message ?: "Error updating password")
+
             }
+
     }
 
     fun logout(onLogout: () -> Unit) {
         auth.signOut()
         onLogout()
     }
-
-    //fun updateMessage(newMessage: String?) = _uiState.update { it.copy(message = newMessage) }
 }

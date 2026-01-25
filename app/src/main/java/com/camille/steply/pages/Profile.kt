@@ -1,9 +1,12 @@
 package com.camille.steply.pages
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.Logout
@@ -12,34 +15,49 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Scale
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import androidx.compose.foundation.layout.aspectRatio
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.camille.steply.viewmodel.ProfileViewModel
 import com.camille.steply.viewmodel.HomeViewModel
-import androidx.compose.ui.draw.clip
-
 
 private val BgColor = Color(0xFFF4F1EC)
 private val AccentColor = Color(0xFFFF8A00)
+private val CardColor = Color.White
+private val TextSecondary = Color(0xFF8E8E93)
+private val IconBgColor = Color(0xFFF4F1EC)
 
 @Composable
-fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
-    val viewModel: ProfileViewModel = viewModel()
-    val uiState by viewModel.uiState.collectAsState()
+fun Profile(
+    navController: NavHostController,
+    homeViewModel: HomeViewModel,
+    profileViewModel: ProfileViewModel,
+) {
+    //val viewModel: ProfileViewModel = viewModel()
+
+    val uiState by profileViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
 
     val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
-
     val goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
 
     var showMenu by remember { mutableStateOf(false) }
@@ -65,10 +83,7 @@ fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
                         when (index) {
                             0 -> {
                                 homeViewModel.selectToday()
-                                val popped = navController.popBackStack(Routes.STEPS, inclusive = false)
-                                if (!popped) {
-                                    navController.navigate(Routes.STEPS) { launchSingleTop = true }
-                                }
+                                navController.navigate(Routes.STEPS) { launchSingleTop = true }
                             }
                             1 -> navController.navigate("activity") { launchSingleTop = true }
                             2 -> { /* Stay */ }
@@ -79,87 +94,89 @@ fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
             }
         }
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            // SETTINGS BUTTON
-            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp, end = sidePad), contentAlignment = Alignment.TopEnd) {
-                Box {
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF111111))
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        offset = DpOffset(x = (-16).dp, y = 0.dp),
-                        modifier = Modifier.background(Color.White, RoundedCornerShape(16.dp))
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Edit Profile") },
-                            leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(20.dp)) },
-                            onClick = {
-                                showMenu = false
-                                navController.navigate("edit_profile")
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Log Out", color = Color.Red) },
-                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, Modifier.size(20.dp), tint = Color.Red) },
-                            onClick = {
-                                showMenu = false
-                                showLogoutDialog = true
-                            }
-                        )
-                    }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = sidePad)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // TOP BAR SETTINGS
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.TopEnd) {
+                IconButton(onClick = { showMenu = true }) {
+                    Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF111111))
                 }
-            }
-
-            Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = sidePad),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Spacer(modifier = Modifier.height(60.dp))
-
-                // HEADER SECTION
-                ProfileHeaderSection(name = uiState.name, username = uiState.username, photoUri = uiState.profilePhotoUri)
-
-                Spacer(modifier = Modifier.height(40.dp))
-
-                // CONTENT SECTION
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    offset = DpOffset(x = (-16).dp, y = 0.dp),
+                    modifier = Modifier.background(Color.White, RoundedCornerShape(16.dp))
                 ) {
-                    // 1. GOAL PROGRESS CARD (Static / Informative)
-                    GoalProgressCard(
-                        currentSteps = homeState.steps,
-                        goalSteps = goalSteps
-                    )
-
-
-                    // 2. WEIGHT ROW (Interactive with Chevron)
-                    ProfileRowItem(
-                        label = "Weight",
-                        value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
-                        icon = Icons.Default.Scale,
+                    DropdownMenuItem(
+                        text = { Text("Edit Profile") },
+                        leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(20.dp)) },
                         onClick = {
-                            navController.navigate("weight_history")
+                            showMenu = false
+                            navController.navigate("edit_profile")
                         }
                     )
-
-                    ProfileToggleRowItem(
-                        label = "Daily Goal Notification",
-                        icon = Icons.Default.Notifications,
-                        checked = goalNotifEnabled,
-                        onCheckedChange = { enabled ->
-                            homeViewModel.setGoalNotificationEnabled(enabled)
+                    DropdownMenuItem(
+                        text = { Text("Log Out", color = Color.Red) },
+                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, Modifier.size(20.dp), tint = Color.Red) },
+                        onClick = {
+                            showMenu = false
+                            showLogoutDialog = true
                         }
                     )
-
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // HEADER SECTION
+            ProfileHeaderSection(
+                name = uiState.name,
+                username = uiState.username,
+                photoUri = uiState.profilePhotoUri,
+                streakCount = homeState.streakDays
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // CONTENT SECTION
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                OverviewCard(
+                    totalSteps = uiState.totalSteps,
+                    bestDay = uiState.bestDaySteps,
+                    totalKm = uiState.totalKm,
+                    totalWorkouts = uiState.totalWorkouts,
+                    homeViewModel = homeViewModel
+                )
+
+                GoalProgressCard(currentSteps = homeState.steps, goalSteps = goalSteps)
+
+                ProfileRowItem(
+                    label = "Weight",
+                    value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
+                    icon = Icons.Default.Scale,
+                    onClick = { navController.navigate("weight_history") }
+                )
+
+                ProfileToggleRowItem(
+                    label = "Daily Goal Notification",
+                    icon = Icons.Default.Notifications,
+                    checked = goalNotifEnabled,
+                    onCheckedChange = { homeViewModel.setGoalNotificationEnabled(it) }
+                )
+            }
+            Spacer(modifier = Modifier.height(30.dp))
         }
     }
 
-    // LOGOUT DIALOG
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
@@ -168,7 +185,7 @@ fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutDialog = false
-                    viewModel.logout { navController.navigate("login") { popUpTo(0) } }
+                    profileViewModel.logout { navController.navigate("login") { popUpTo(0) } }
                 }) { Text("Logout", color = Color.Red, fontWeight = FontWeight.Bold) }
             },
             dismissButton = {
@@ -181,186 +198,211 @@ fun Profile(navController: NavHostController, homeViewModel: HomeViewModel) {
 }
 
 @Composable
-fun ProfileHeaderSection(name: String, username: String, photoUri: android.net.Uri?) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        // --- LOGICA CONDIZIONALE PER L'AVATAR ---
-        if (photoUri != null) {
-            // CASO A: C'è la foto -> Mostra AsyncImage con bordo arancione
-            Surface(
-                modifier = Modifier.size(110.dp),
-                shape = CircleShape,
-                color = Color.White,
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.LightGray),
-                shadowElevation = 4.dp
+fun ProfileHeaderSection(name: String, username: String, photoUri: android.net.Uri?, streakCount: Int) {
+    val (userRank, rankColor) = when {
+        streakCount >= 30 -> "Legend" to Color(0xFF6200EE)
+        streakCount >= 15 -> "Pro" to Color(0xFF007AFF)
+        streakCount >= 7 -> "Amateur" to Color(0xFF34C759)
+        else -> "Rookie" to Color(0xFF8E8E93)
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Surface(
+            modifier = Modifier.weight(1f).aspectRatio(1.1f),
+            shape = RoundedCornerShape(28.dp),
+            color = CardColor,
+            shadowElevation = 18.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                coil.compose.AsyncImage(
-                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
-                        .data(photoUri)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Profile Picture",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clip(CircleShape),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                )
-            }
-        } else {
-            // CASO B: Non c'è la foto -> Cerchio Arancione con Iniziale
-            Box(
-                modifier = Modifier
-                    .size(110.dp)
-                    .background(AccentColor, CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = name.take(1).uppercase().ifEmpty { "U" },
-                    style = MaterialTheme.typography.displayMedium,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
-                )
+                if (photoUri != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current).data(photoUri).crossfade(true).build(),
+                        contentDescription = null,
+                        modifier = Modifier.size(60.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Box(modifier = Modifier.size(60.dp).background(AccentColor, CircleShape), contentAlignment = Alignment.Center) {
+                        Text(name.take(1).uppercase().ifEmpty { "U" }, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 22.sp)
+                    }
+                }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(name.ifEmpty { "User" }, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1)
+                Text("@$username", color = TextSecondary, fontSize = 11.sp, maxLines = 1)
             }
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Surface(
+            modifier = Modifier.weight(1f).aspectRatio(1.1f),
+            shape = RoundedCornerShape(28.dp),
+            color = CardColor,
+            shadowElevation = 18.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(if (streakCount > 0) "🔥" else "🧊", fontSize = 32.sp)
+                Text(streakCount.toString(), fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, color = if (streakCount > 0) Color(0xFFFF4500) else TextSecondary)
+                Text("Day Streak", fontSize = 11.sp, color = TextSecondary)
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(color = rankColor.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                    Text(userRank, modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp), color = rankColor, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                }
+            }
+        }
+    }
+}
 
-        // NOME E USERNAME
-        Text(
-            text = name.ifEmpty { "User Name" },
-            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold)
-        )
-        Text(
-            text = "@${username.ifEmpty { "username" }}",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Color.Gray
-        )
+@Composable
+fun OverviewCard(
+    totalSteps: Long,
+    bestDay: Int,
+    totalKm: String,
+    totalWorkouts: Int,
+    homeViewModel: HomeViewModel
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = CardColor,
+        shadowElevation = 18.dp
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Text(
+                text = "Your Overview",
+                modifier = Modifier.clickable { homeViewModel.simulateStepsDebug() }, // <--- AGGIUNGI QUESTO
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color(0xFF111111)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OverviewStatItem(
+                    label = "Total Steps",
+                    value = if (totalSteps > 99999) "${totalSteps / 1000}k" else totalSteps.toString(),
+                    icon = Icons.Default.DirectionsWalk,
+                    modifier = Modifier.weight(1f)
+                )
+                OverviewStatItem(
+                    label = "Best Day",
+                    value = if (bestDay > 0) bestDay.toString() else "--",
+                    icon = Icons.Default.EmojiEvents,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                OverviewStatItem(
+                    label = "Total Dist.",
+                    value = "$totalKm km",
+                    icon = Icons.Default.Map,
+                    modifier = Modifier.weight(1f)
+                )
+                OverviewStatItem(
+                    label = "Workouts",
+                    value = totalWorkouts.toString(),
+                    icon = Icons.Default.FitnessCenter,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun OverviewStatItem(label: String, value: String, icon: ImageVector, modifier: Modifier) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(36.dp).background(IconBgColor, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(18.dp), tint = AccentColor)
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(text = value, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(text = label, color = TextSecondary, fontSize = 11.sp)
+        }
     }
 }
 
 @Composable
 fun GoalProgressCard(currentSteps: Int, goalSteps: Int) {
     val progress = (currentSteps.toFloat() / goalSteps.toFloat()).coerceIn(0f, 1f)
-
     Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = CardColor,
+        shadowElevation = 18.dp
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Flag, null, tint = Color.Black.copy(0.6f), modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("Daily Goal", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.size(36.dp).background(IconBgColor, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Flag, null, tint = AccentColor, modifier = Modifier.size(18.dp))
                 }
-                Text(
-                    text = "$goalSteps steps",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
-                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Daily Goal", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("$goalSteps steps", fontSize = 11.sp, color = TextSecondary)
+                }
+                Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = AccentColor, fontSize = 15.sp)
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Progress Bar
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(10.dp)
-                    .background(Color(0xFFF0F0F0), CircleShape)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress)
-                        .fillMaxHeight()
-                        .background(AccentColor, CircleShape)
-                )
+            Box(modifier = Modifier.fillMaxWidth().height(8.dp).background(Color(0xFFF0F0F0), CircleShape)) {
+                Box(modifier = Modifier.fillMaxWidth(progress).fillMaxHeight().background(AccentColor, CircleShape))
             }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Text(
-                text = "${(progress * 100).toInt()}% of your goal",
-                style = MaterialTheme.typography.labelMedium,
-                color = AccentColor,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }
 
 @Composable
-fun ProfileRowItem(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    onClick: () -> Unit
-) {
+fun ProfileRowItem(label: String, value: String, icon: ImageVector, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = CardColor,
+        shadowElevation = 18.dp
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 22.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = Color.Black.copy(0.6f), modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                color = AccentColor
-            )
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(36.dp).background(IconBgColor, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = AccentColor, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(label, modifier = Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(value, fontWeight = FontWeight.Bold, color = AccentColor, fontSize = 15.sp)
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = Color.LightGray,
-                modifier = Modifier.size(20.dp)
-            )
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.LightGray, modifier = Modifier.size(20.dp))
         }
     }
 }
 
 @Composable
-fun ProfileToggleRowItem(
-    label: String,
-    icon: ImageVector,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
-) {
+fun ProfileToggleRowItem(label: String, icon: ImageVector, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Surface(
-        shape = RoundedCornerShape(24.dp),
-        color = Color.White,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        color = CardColor,
+        shadowElevation = 18.dp
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = Color.Black.copy(0.6f), modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(text = label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-
+        Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(modifier = Modifier.size(36.dp).background(IconBgColor, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = AccentColor, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(label, modifier = Modifier.weight(1f), fontSize = 15.sp, fontWeight = FontWeight.Medium)
             Switch(
                 checked = checked,
                 onCheckedChange = onCheckedChange,
                 colors = SwitchDefaults.colors(
                     checkedTrackColor = Color(0xFF34C759),
-                    checkedThumbColor = Color.White,
-                    uncheckedTrackColor = Color(0xFFE6E6EA),
-                    uncheckedThumbColor = Color.White
+                    checkedThumbColor = Color.White
                 )
             )
         }

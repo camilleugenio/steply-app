@@ -271,7 +271,7 @@ fun EditProfile(navController: NavHostController) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { }) { Text("Stay") }
+                TextButton(onClick = { showExitDialog = false }) { Text("Stay") }
             }
         )
     }

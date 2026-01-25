@@ -13,6 +13,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.camille.steply.viewmodel.HomeViewModel
+import com.camille.steply.viewmodel.ProfileViewModel
 import com.camille.steply.viewmodel.HomeVmFactory
 import com.camille.steply.viewmodel.WorkoutType
 import com.google.firebase.auth.FirebaseAuth
@@ -33,6 +34,7 @@ fun MainNavGraph() {
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeVmFactory(context.applicationContext as Application)
     )
+    val profileViewModel = ProfileViewModel()
 
     val isEmulator = remember {
         val fp = android.os.Build.FINGERPRINT.lowercase()
@@ -77,7 +79,10 @@ fun MainNavGraph() {
         }
 
         composable(Routes.PROFILE) {
-            Profile(navController = navController, homeViewModel = homeViewModel)
+            Profile(
+                navController = navController,
+                homeViewModel = homeViewModel,
+                profileViewModel = profileViewModel)
         }
 
         composable(Routes.EDITPROFILE) {

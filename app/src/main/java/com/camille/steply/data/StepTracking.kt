@@ -167,6 +167,10 @@ class StepDataStore(private val context: Context) {
         }
     }
 
+    suspend fun saveSteps(iso: String, steps: Int) {
+        setStepsForDateIso(iso, steps)
+    }
+
     fun stepsForDateIsoFlow(iso: String): Flow<Int> {
         return dataStore.data.map { prefs -> prefs[dayKeyIso(iso)] ?: 0 }
     }
