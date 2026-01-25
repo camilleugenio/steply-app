@@ -26,7 +26,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.camille.steply.viewmodel.ProfileViewModel
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -35,10 +34,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.camille.steply.viewmodel.AuthViewModel
 
 @Composable
-fun RegistrationScreen(navController: NavHostController) {
-    val viewModel: ProfileViewModel = viewModel()
+fun Registration(navController: NavHostController) {
+    val viewModel: AuthViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     var currentStep by remember { mutableIntStateOf(0) }
 

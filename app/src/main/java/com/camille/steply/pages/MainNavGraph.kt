@@ -62,11 +62,11 @@ fun MainNavGraph() {
         popExitTransition = { fadeOut(animationSpec = tween(40)) }
     ) {
         composable(Routes.LOGIN) {
-            LoginScreen(navController = navController)
+            Login(navController = navController)
         }
 
         composable(Routes.REGISTRATION) {
-            RegistrationScreen(navController = navController)
+            Registration(navController = navController)
         }
         composable(Routes.STEPS) {
             Home(navController = navController, homeViewModel = homeViewModel)
@@ -81,11 +81,11 @@ fun MainNavGraph() {
         }
 
         composable(Routes.EDITPROFILE) {
-            EditProfileScreen(navController =  navController)
+            EditProfile(navController =  navController)
         }
 
         composable(Routes.WEIGHTHISTORY) {
-            WeightHistoryScreen(navController)
+            WeightHistory(navController)
         }
 
         composable("${Routes.WORKOUT}/{type}") { backStackEntry ->

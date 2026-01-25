@@ -19,11 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.camille.steply.viewmodel.ProfileViewModel
+import com.camille.steply.viewmodel.AuthViewModel
 
 @Composable
-fun LoginScreen(navController: NavHostController) {
-    val viewModel: ProfileViewModel = viewModel()
+fun Login(navController: NavHostController) {
+    val viewModel: AuthViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
 
     var email by remember { mutableStateOf("") }

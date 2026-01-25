@@ -37,11 +37,14 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.camille.steply.R
 import com.camille.steply.viewmodel.ProfileViewModel
+import com.camille.steply.viewmodel.WeightViewModel
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditProfileScreen(navController: NavHostController) {
+fun EditProfile(navController: NavHostController) {
     val viewModel: ProfileViewModel = viewModel()
+    val weightViewModel: WeightViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
 
@@ -192,20 +195,21 @@ fun EditProfileScreen(navController: NavHostController) {
             // --- SAVE BUTTON LOGIC ---
             Button(
                 onClick = {
-                    if (tempPhotoUri != null) {
-                        // Prima carichiamo la foto, poi salviamo i dati testuali
-                        viewModel.uploadProfilePicture(tempPhotoUri!!) {
-                            viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
+                    val onComplete = {
+                        // Quando tutto è finito, salviamo i dati nel profilo
+                        viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
+                            // E contemporaneamente aggiungiamo la voce alla cronologia
+                            weightViewModel.addWeightEntry(tempWeight) {
                                 Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()
                             }
                         }
+                    }
+
+                    if (tempPhotoUri != null) {
+                        viewModel.uploadProfilePicture(tempPhotoUri!!) { onComplete() }
                     } else {
-                        // Nessuna nuova foto, salviamo solo i campi testo
-                        viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
-                            Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
-                            navController.popBackStack()
-                        }
+                        onComplete()
                     }
                 },
                 modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -226,7 +230,7 @@ fun EditProfileScreen(navController: NavHostController) {
     // --- DIALOGS (Password) ---
     if (showPasswordDialog) {
         AlertDialog(
-            onDismissRequest = { showPasswordDialog = false },
+            onDismissRequest = { },
             title = { Text("Change Password", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
@@ -247,19 +251,18 @@ fun EditProfileScreen(navController: NavHostController) {
             confirmButton = {
                 Button(onClick = {
                     viewModel.changePassword(newPassword, onSuccess = {
-                        showPasswordDialog = false
                         Toast.makeText(context, "Password updated!", Toast.LENGTH_SHORT).show()
                     }, onError = { /* handle error */ })
                 }) { Text("Update") }
             },
-            dismissButton = { TextButton(onClick = { showPasswordDialog = false }) { Text("Cancel") } }
+            dismissButton = { TextButton(onClick = { }) { Text("Cancel") } }
         )
     }
 
     // --- DIALOGS (Exit) ---
     if (showExitDialog) {
         AlertDialog(
-            onDismissRequest = { showExitDialog = false },
+            onDismissRequest = { },
             title = { Text("Unsaved Changes", fontWeight = FontWeight.Bold) },
             text = { Text("You have unsaved changes. Exit anyway?") },
             confirmButton = {
@@ -268,7 +271,7 @@ fun EditProfileScreen(navController: NavHostController) {
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showExitDialog = false }) { Text("Stay") }
+                TextButton(onClick = { }) { Text("Stay") }
             }
         )
     }

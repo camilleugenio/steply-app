@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.camille.steply.viewmodel.ProfileViewModel
+import com.camille.steply.viewmodel.WeightViewModel
 import com.camille.steply.viewmodel.WeightEntry
 import java.util.Locale
 
@@ -33,20 +34,23 @@ private val GridColor = Color.LightGray.copy(alpha = 0.3f)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeightHistoryScreen(navController: NavHostController) {
-    val viewModel: ProfileViewModel = viewModel()
-    val uiState by viewModel.uiState.collectAsState()
+fun WeightHistory(navController: NavHostController) {
+    // Usiamo entrambi i ViewModel per separare le responsabilità
+    val profileViewModel: ProfileViewModel = viewModel()
+    val weightViewModel: WeightViewModel = viewModel()
+
+    val profileUiState by profileViewModel.uiState.collectAsState()
+    val weightUiState by weightViewModel.uiState.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Daily", "Weekly", "Monthly")
 
-    // Stato per il pannello di modifica peso
     var showSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
-    // Filtro per il grafico
-    val filteredHistory = remember(uiState.weightHistory, selectedTab) {
-        val base = uiState.weightHistory.sortedBy { it.timestamp }
+    // Filtro per il grafico basato sullo stato del WeightViewModel
+    val filteredHistory = remember(weightUiState.weightHistory, selectedTab) {
+        val base = weightUiState.weightHistory.sortedBy { it.timestamp }
         when (selectedTab) {
             1 -> base.takeLast(7)
             2 -> base.takeLast(30)
@@ -54,7 +58,8 @@ fun WeightHistoryScreen(navController: NavHostController) {
         }
     }
 
-    val currentWeightValue = uiState.weight.replace(",", ".").toDoubleOrNull() ?: 0.0
+    // Prendiamo il peso attuale dal ProfileViewModel
+    val currentWeightValue = profileUiState.weight.replace(",", ".").toDoubleOrNull() ?: 0.0
 
     Scaffold(
         containerColor = BgColor,
@@ -78,10 +83,8 @@ fun WeightHistoryScreen(navController: NavHostController) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // 1. Tab Selector
             item { TabSelector(tabs, selectedTab) { selectedTab = it } }
 
-            // 2. Card Overview cliccabile
             item {
                 Column {
                     Text("Weight Overview", fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
@@ -94,7 +97,6 @@ fun WeightHistoryScreen(navController: NavHostController) {
                 }
             }
 
-            // 3. Grafico
             item {
                 Box(
                     modifier = Modifier
@@ -109,21 +111,19 @@ fun WeightHistoryScreen(navController: NavHostController) {
                 }
             }
 
-            // 4. Cronologia
             item {
                 Text("History", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
             }
 
-            if (uiState.weightHistory.isEmpty()) {
+            if (weightUiState.weightHistory.isEmpty()) {
                 item { Text("No records found.", color = Color.Gray) }
             } else {
-                items(uiState.weightHistory.sortedByDescending { it.timestamp }) { entry ->
+                items(weightUiState.weightHistory.sortedByDescending { it.timestamp }) { entry ->
                     HistoryItem(entry.date, entry.weight)
                 }
             }
         }
 
-        // Pannello di modifica (Bottom Sheet)
         if (showSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showSheet = false },
@@ -131,10 +131,12 @@ fun WeightHistoryScreen(navController: NavHostController) {
                 containerColor = Color.White
             ) {
                 WeightUpdateSheetContent(
-                    initialWeight = uiState.weight,
+                    initialWeight = profileUiState.weight,
                     onSave = { newWeight ->
-                        viewModel.updateWeight(newWeight)
-                        showSheet = false
+                        // Usiamo il WeightViewModel per aggiungere la voce e aggiornare il DB
+                        weightViewModel.addWeightEntry(newWeight) {
+                            showSheet = false
+                        }
                     },
                     onCancel = { showSheet = false }
                 )
@@ -157,7 +159,6 @@ fun WeightGridChartMinimal(history: List<WeightEntry>) {
         val minW = (weights.minOrNull() ?: 0f) - 1.5f
         val range = (maxW - minW).coerceAtLeast(2f)
 
-        // Griglia Y
         repeat(5) { i ->
             val y = i * (chartHeight / 4)
             val value = maxW - i * (range / 4)
@@ -169,7 +170,6 @@ fun WeightGridChartMinimal(history: List<WeightEntry>) {
             )
         }
 
-        // Linea e Date X
         if (history.size >= 2) {
             val stepX = chartWidth / (history.size - 1)
             val path = Path()
