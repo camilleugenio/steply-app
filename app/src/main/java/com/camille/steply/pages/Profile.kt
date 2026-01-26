@@ -2,6 +2,8 @@ package com.camille.steply.pages
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -101,34 +103,59 @@ fun Profile(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // TOP BAR SETTINGS
-            Box(modifier = Modifier.fillMaxWidth().padding(top = 8.dp), contentAlignment = Alignment.TopEnd) {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF111111))
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    offset = DpOffset(x = (-16).dp, y = 0.dp),
-                    modifier = Modifier.background(Color.White, RoundedCornerShape(16.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                Box(
+                    modifier = Modifier.wrapContentSize(Alignment.TopEnd)
                 ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit Profile") },
-                        leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(20.dp)) },
-                        onClick = {
-                            showMenu = false
-                            navController.navigate("edit_profile")
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = Color(0xFF111111)
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        shape = RoundedCornerShape(18.dp),
+                        containerColor = Color.White,
+                        tonalElevation = 6.dp,
+                        shadowElevation = 12.dp
+                    ) {
+                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+
+                            PressableMenuRow(
+                                label = "Edit Profile",
+                                icon = Icons.Default.Edit,
+                                iconTint = Color.Black,
+                                onClick = {
+                                    showMenu = false
+                                    navController.navigate("edit_profile")
+                                }
+                            )
+
+                            PressableMenuRow(
+                                label = "Log Out",
+                                icon = Icons.AutoMirrored.Filled.Logout,
+                                iconTint = Color.Red,
+                                textColor = Color.Red,
+                                pressedBgColor = Color(0xFFFFEBEE),
+                                onClick = {
+                                    showMenu = false
+                                    showLogoutDialog = true
+                                }
+                            )
                         }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Log Out", color = Color.Red) },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.Logout, null, Modifier.size(20.dp), tint = Color.Red) },
-                        onClick = {
-                            showMenu = false
-                            showLogoutDialog = true
-                        }
-                    )
+                    }
                 }
             }
+
 
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -402,6 +429,52 @@ fun ProfileToggleRowItem(label: String, icon: ImageVector, checked: Boolean, onC
                     checkedTrackColor = Color(0xFF34C759),
                     checkedThumbColor = Color.White
                 )
+            )
+        }
+    }
+}
+
+@Composable
+private fun PressableMenuRow(
+    label: String,
+    icon: ImageVector,
+    iconTint: Color,
+    textColor: Color = Color.Black,
+    pressedBgColor: Color = Color(0xFFF2F2F4),
+    onClick: () -> Unit
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+
+    val bg = if (pressed) pressedBgColor else Color.Transparent
+
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 10.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bg)
+            .clickable(
+                interactionSource = interaction,
+                indication = null
+            ) { onClick() }
+            .fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                text = label,
+                color = textColor,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
             )
         }
     }
