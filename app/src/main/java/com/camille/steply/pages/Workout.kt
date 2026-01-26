@@ -48,6 +48,9 @@ import com.camille.steply.viewmodel.WorkoutType
 import com.camille.steply.viewmodel.WorkoutViewModel
 import com.camille.steply.viewmodel.WorkoutVmFactory
 import com.camille.steply.viewmodel.WorkoutHistoryViewModel
+import com.camille.steply.viewmodel.WorkoutReportSnapshot
+import com.camille.steply.viewmodel.LatLngP
+import com.camille.steply.viewmodel.TrackSegmentP
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory

@@ -1,8 +1,14 @@
 package com.camille.steply.pages
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Typeface
+import android.net.Uri
 import android.os.Parcelable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -23,12 +29,26 @@ import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.zIndex
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import com.camille.steply.viewmodel.WorkoutHistoryViewModel
+import com.camille.steply.viewmodel.WorkoutReportViewModel
+import com.camille.steply.viewmodel.WorkoutReportEffect
 import com.camille.steply.viewmodel.WorkoutType
+import com.camille.steply.viewmodel.WorkoutReportSnapshot
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptor
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
@@ -38,66 +58,48 @@ import com.google.android.gms.maps.model.PatternItem
 import com.google.maps.android.compose.*
 import kotlinx.parcelize.Parcelize
 import kotlinx.serialization.Serializable
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
-import android.net.Uri
-import android.Manifest
-import androidx.compose.ui.draw.shadow
-import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.ui.platform.LocalContext
-import androidx.core.content.ContextCompat
-import androidx.core.content.FileProvider
-import java.io.File
-import androidx.compose.ui.zIndex
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.foundation.border
-import androidx.compose.ui.layout.ContentScale
-import androidx.lifecycle.viewmodel.compose.viewModel
-import coil.compose.AsyncImage
-import com.camille.steply.viewmodel.WorkoutHistoryViewModel
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.compose.material.icons.filled.Refresh
+
+
 
 // -------------------- SNAPSHOT (Parcelable) --------------------
-
-@Parcelize
-@Serializable
-data class LatLngP(val lat: Double, val lon: Double) : Parcelable
-
-@Parcelize
-@Serializable
-data class TrackSegmentP(
-    val dashed: Boolean,
-    val points: List<LatLngP>
-) : Parcelable
-
-@Parcelize
-@Serializable
-data class WorkoutReportSnapshot(
-    val type: String,
-    val startTimeMs: Long,
-    val durationSec: Int,
-    val distanceMeters: Double,
-    val kcal: Int,
-    val meteoEmoji: String,
-    val meteoTempC: String,
-    val startPoint: LatLngP?,
-    val segments: List<TrackSegmentP>,
-    val photoUri: String? = null
-) : Parcelable
+//
+//@Parcelize
+//@Serializable
+//data class LatLngP(val lat: Double, val lon: Double) : Parcelable
+//
+//@Parcelize
+//@Serializable
+//data class TrackSegmentP(
+//    val dashed: Boolean,
+//    val points: List<LatLngP>
+//) : Parcelable
+//
+//@Parcelize
+//@Serializable
+//data class WorkoutReportSnapshot(
+//    val type: String,
+//    val startTimeMs: Long,
+//    val durationSec: Int,
+//    val distanceMeters: Double,
+//    val kcal: Int,
+//    val meteoEmoji: String,
+//    val meteoTempC: String,
+//    val startPoint: LatLngP?,
+//    val segments: List<TrackSegmentP>,
+//    val photoUri: String? = null
+//) : Parcelable
 
 // -------------------- SCREEN --------------------
 
 @Composable
 fun WorkoutReportScreen(
-    navController: NavController
+    navController: NavController,
+    vm: WorkoutReportViewModel = viewModel()
 ) {
     val snapshot = remember {
         navController.previousBackStackEntry
@@ -124,36 +126,28 @@ fun WorkoutReportScreen(
         return
     }
 
-    var workoutPhotoUri by rememberSaveable(snapshot.startTimeMs) {
-        mutableStateOf(snapshot.photoUri)
+    // init VM once per snapshot
+    LaunchedEffect(snapshot.startTimeMs) {
+        vm.init(snapshot, fromHistory)
     }
 
-    LaunchedEffect(snapshot.photoUri) {
-        if (workoutPhotoUri != snapshot.photoUri) {
-            workoutPhotoUri = snapshot.photoUri
-        }
-    }
-
-    val showPolaroid = if (fromHistory) workoutPhotoUri != null else true
-    val canTakePhoto = !fromHistory
+    val uiState by vm.uiState.collectAsState()
+    val effect by vm.effect.collectAsState()
 
     val context = LocalContext.current
+    val historyVm: WorkoutHistoryViewModel = viewModel()
 
     var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
-    var showPhotoPreview by remember { mutableStateOf(false) }
-
-    // apre la fotocamera e salva nella Uri
-    val historyVm: WorkoutHistoryViewModel = viewModel()
 
     val takePictureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            workoutPhotoUri = pendingCameraUri?.toString()
+            val newUri = pendingCameraUri?.toString()
+            vm.onPhotoCaptured(newUri)
 
-            // salva solo se è un report appena finito
             if (!fromHistory) {
-                historyVm.updatePhoto(snapshot.startTimeMs, workoutPhotoUri)
+                historyVm.updatePhoto(snapshot.startTimeMs, newUri)
             }
         } else {
             pendingCameraUri = null
@@ -170,20 +164,47 @@ fun WorkoutReportScreen(
         }
     }
 
-    val launchCamera: () -> Unit = {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA
-        ) == PackageManager.PERMISSION_GRANTED
+    // handle one-shot effects from VM
+    LaunchedEffect(effect) {
+        when (effect) {
+            WorkoutReportEffect.NavigateBackToActivity -> {
+                vm.consumeEffect()
+                navController.navigate(Routes.ACTIVITY) {
+                    launchSingleTop = true
+                    popUpTo(Routes.ACTIVITY) { inclusive = false }
+                }
+            }
 
-        if (hasPermission) {
-            val uri = createImageUri(context)
-            pendingCameraUri = uri
-            takePictureLauncher.launch(uri)
-        } else {
-            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            WorkoutReportEffect.RequestCameraPermission -> {
+                vm.consumeEffect()
+                requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+            }
+
+            WorkoutReportEffect.LaunchCamera -> {
+                vm.consumeEffect()
+                val hasPermission = ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.CAMERA
+                ) == PackageManager.PERMISSION_GRANTED
+
+                if (hasPermission) {
+                    val uri = createImageUri(context)
+                    pendingCameraUri = uri
+                    takePictureLauncher.launch(uri)
+                } else {
+                    vm.onCameraPermissionNeeded()
+                }
+            }
+
+            null -> Unit
         }
     }
+
+    val workoutPhotoUri = uiState.workoutPhotoUri
+    val showPhotoPreview = uiState.showPhotoPreview
+
+    val showPolaroid = if (fromHistory) workoutPhotoUri != null else true
+    val canTakePhoto = !fromHistory
 
     // Responsive
     val config = LocalConfiguration.current
@@ -198,8 +219,6 @@ fun WorkoutReportScreen(
 
     val titleSize = if (isSmall) 18.sp else 20.sp
     val dateSize = if (isSmall) 12.sp else 13.sp
-    val valueSize = if (isSmall) 20.sp else 22.sp
-    val statGap = if (isSmall) 12.dp else 18.dp
 
     val cardMaxH = minOf((screenHdp.dp * 0.45f), if (isSmall) 340.dp else 380.dp)
 
@@ -226,7 +245,6 @@ fun WorkoutReportScreen(
     val durationText = remember(snapshot.durationSec) { formatDuration(snapshot.durationSec) }
     val km = snapshot.distanceMeters / 1000.0
     val kmText = String.format(Locale.US, "%.2f", km)
-
     val avgSpeedKmh = if (snapshot.durationSec > 0) (km / (snapshot.durationSec / 3600.0)) else 0.0
     val avgSpeedText = String.format(Locale.US, "%.1f", avgSpeedKmh)
 
@@ -257,15 +275,11 @@ fun WorkoutReportScreen(
     val density = LocalDensity.current
     val cardHeightDp = with(density) { cardHeightPx.toDp() }
 
-
     Box(modifier = Modifier.fillMaxSize()) {
 
         // -------------------- MAP --------------------
         if (bounds != null || start != null || end != null) {
-
             val cameraState = rememberCameraPositionState()
-
-            val density = LocalDensity.current
 
             LaunchedEffect(bounds, isSmall, start, end) {
                 val paddingPx = with(density) {
@@ -360,12 +374,7 @@ fun WorkoutReportScreen(
                 .size(if (isSmall) 42.dp else 44.dp)
                 .clip(CircleShape)
                 .background(Color.White)
-                .clickable {
-                    navController.navigate(Routes.ACTIVITY) {
-                        launchSingleTop = true
-                        popUpTo(Routes.ACTIVITY) { inclusive = false }
-                    }
-                },
+                .clickable { vm.onCloseClicked() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -499,7 +508,7 @@ fun WorkoutReportScreen(
             }
         }
 
-        // -------------------- CAMERA --------------------
+        // -------------------- CAMERA / POLAROID --------------------
         val polaroidSize = if (isSmall) 80.dp else 90.dp
         val polaroidCorner = 12.dp
         val gapAboveCard = 12.dp
@@ -516,26 +525,8 @@ fun WorkoutReportScreen(
                     .clip(RoundedCornerShape(polaroidCorner))
                     .background(Color.White)
                     .border(1.dp, Color(0xFFE6E6E6), RoundedCornerShape(polaroidCorner))
-                    .clickable(
-                        enabled = (workoutPhotoUri != null) || canTakePhoto
-                    ) {
-                        if (workoutPhotoUri != null) {
-                            showPhotoPreview = true
-                            return@clickable
-                        }
-
-                        val hasPermission = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.CAMERA
-                        ) == PackageManager.PERMISSION_GRANTED
-
-                        if (hasPermission) {
-                            val uri = createImageUri(context)
-                            pendingCameraUri = uri
-                            takePictureLauncher.launch(uri)
-                        } else {
-                            requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                        }
+                    .clickable(enabled = (workoutPhotoUri != null) || canTakePhoto) {
+                        vm.onPolaroidClicked(canTakePhoto = canTakePhoto)
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -585,7 +576,7 @@ fun WorkoutReportScreen(
                             .size(44.dp)
                             .clip(CircleShape)
                             .background(Color.White.copy(alpha = 0.95f))
-                            .clickable { showPhotoPreview = false },
+                            .clickable { vm.onDismissPreview() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -604,10 +595,7 @@ fun WorkoutReportScreen(
                                 .size(44.dp)
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.95f))
-                                .clickable {
-                                    showPhotoPreview = false
-                                    launchCamera()
-                                },
+                                .clickable { vm.onRetakePhotoClicked() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -753,7 +741,6 @@ private fun rememberStartMarkerIconWithLabel(
 
             drawIntoCanvas { c ->
                 val native = c.nativeCanvas
-
                 val bgPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     color = android.graphics.Color.WHITE
                 }
@@ -772,8 +759,6 @@ private fun rememberStartMarkerIconWithLabel(
         BitmapDescriptorFactory.fromBitmap(imageBitmap.asAndroidBitmap())
     }
 }
-
-
 
 private fun createImageUri(context: android.content.Context): Uri {
     val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())

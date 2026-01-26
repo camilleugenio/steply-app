@@ -57,6 +57,7 @@ import androidx.navigation.NavController
 import com.camille.steply.viewmodel.ActivityViewModel
 import com.camille.steply.viewmodel.HomeViewModel
 import com.camille.steply.viewmodel.WorkoutHistoryViewModel
+import com.camille.steply.viewmodel.WorkoutReportSnapshot
 import com.camille.steply.viewmodel.WorkoutType
 import com.camille.steply.viewmodel.workoutColor
 import kotlin.math.roundToInt

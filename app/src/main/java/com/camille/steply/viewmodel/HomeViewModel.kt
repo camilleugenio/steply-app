@@ -160,25 +160,6 @@ class HomeViewModel(
         }
     }
 
-
-
-//    private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
-//        val uid = auth.currentUser?.uid ?: return
-//        val todayIso = LocalDate.now().toString()
-//
-//        historyListener?.remove()
-//        historyListener = db.collection("users").document(uid)
-//            .collection("history").document(todayIso)
-//            .addSnapshotListener { snapshot, error ->
-//                if (error != null) return@addSnapshotListener
-//
-//                if (snapshot != null && snapshot.exists()) {
-//                    val firestoreSteps = snapshot.getLong("steps")?.toInt() ?: 0
-//                    updateUI(firestoreSteps, todayIso)
-//                }
-//                onFirstLoad()
-//            }
-//    }
 private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
     val uid = auth.currentUser?.uid ?: return
     val todayIso = LocalDate.now().toString()
