@@ -141,26 +141,34 @@ class HomeViewModel(
         stepsCollectorJob?.cancel()
         stepsCollectorJob = viewModelScope.launch {
             val uid = auth.currentUser?.uid ?: return@launch
+
             store.todayStepsFlow(uid).collect { localSteps ->
                 val todayIso = LocalDate.now().toString()
 
-                // Update UI immediately
+                val prevStepsInUi = _uiState.value.steps
+
                 if (localSteps > 0) {
                     updateUI(localSteps, todayIso)
                 }
 
-                // Sync to Firestore (guarded)
-                val currentStepsInUi = _uiState.value.steps
-                if (isFirestoreLoaded && localSteps > 0 && localSteps > currentStepsInUi) {
+                if (isFirestoreLoaded && localSteps > 0 && localSteps > prevStepsInUi) {
+                    val goal = _uiState.value.dailyGoal
+
                     db.collection("users").document(uid)
                         .collection("history").document(todayIso)
-                        .set(mapOf("steps" to localSteps))
+                        .set(
+                            mapOf(
+                                "steps" to localSteps,
+                                "goal" to goal
+                            ),
+                            com.google.firebase.firestore.SetOptions.merge()
+                        )
                 }
             }
         }
     }
 
-private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
+    private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
     val uid = auth.currentUser?.uid ?: return
     val todayIso = LocalDate.now().toString()
 
