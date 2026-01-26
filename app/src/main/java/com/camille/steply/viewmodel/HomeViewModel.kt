@@ -8,6 +8,7 @@ import com.camille.steply.data.location.LocationRepository
 import com.camille.steply.data.StepDataStore
 import com.camille.steply.data.StepSensor
 import com.camille.steply.service.StepForegroundService
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -70,6 +71,8 @@ class HomeViewModel(
     private var goalListener: ListenerRegistration? = null
     private var historyListener: ListenerRegistration? = null
 
+    private var stepsCollectorJob: Job? = null
+
     val goalNotificationEnabled = store.goalNotificationEnabledFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
@@ -85,56 +88,119 @@ class HomeViewModel(
 
     private var isFirestoreLoaded = false
 
-    init {
+    private val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
+        // Stop old listeners and collectors (old account)
+        goalListener?.remove()
+        historyListener?.remove()
+        stepsCollectorJob?.cancel()
+        stepsCollectorJob = null
+
+        isFirestoreLoaded = false
+
+        // Reset UI immediately to avoid showing previous user's data
+        _uiState.update { state ->
+            val today = LocalDate.now()
+            state.copy(
+                steps = 0,
+                km = "0.00",
+                kcal = "0",
+                streakDays = 0,
+                currentDate = today.format(dateFormatter),
+                currentDayname = today.format(dayFormatter),
+                currentDateIso = today.toString(),
+                selectedDateIso = today.toString(),
+                selectedSteps = 0,
+                selectedKm = "0.00",
+                selectedKcal = "0",
+                weeklySteps = List(7) { 0 },
+                stepsByDateIso = emptyMap()
+            )
+        }
+
+        // If logged out, we stop here
+        val uid = firebaseAuth.currentUser?.uid ?: return@AuthStateListener
+
+        // Re-attach listeners for the new account
         observeUserSettingsFromFirestore()
         syncHistoryFromFirestore()
-        // Sincronizzazione prioritaria con Firestore
-        observeTodayHistoryFromFirestore {
-            isFirestoreLoaded = true
-        }
-        refreshWeeklySteps(_uiState.value.currentDateIso)
+        observeTodayHistoryFromFirestore { isFirestoreLoaded = true }
+
+        // Refresh derived UI from local store (will be filled by Firestore sync)
+        refreshWeeklySteps(LocalDate.now().toString())
         refreshCalendarSteps()
 
+        // Restart local steps collector for the new account
+        startTodayStepsCollector()
+    }
 
+    init {
 
-        viewModelScope.launch {
-            store.todayStepsFlow().collect { localSteps ->
-                val uid = auth.currentUser?.uid ?: return@collect
+        auth.addAuthStateListener(authListener)
+    }
+    private fun startTodayStepsCollector() {
+        stepsCollectorJob?.cancel()
+        stepsCollectorJob = viewModelScope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
+            store.todayStepsFlow(uid).collect { localSteps ->
                 val todayIso = LocalDate.now().toString()
 
-                // Prendiamo il valore attuale presente nella UI
-                val currentStepsInUi = _uiState.value.steps
+                // Update UI immediately
+                if (localSteps > 0) {
+                    updateUI(localSteps, todayIso)
+                }
 
-                // PROTEZIONE: Scriviamo su Firestore solo se il sensore locale è maggiore di 0
-                // E se è maggiore di quanto già salvato su Firestore (evita il reset a 0)
+                // Sync to Firestore (guarded)
+                val currentStepsInUi = _uiState.value.steps
                 if (isFirestoreLoaded && localSteps > 0 && localSteps > currentStepsInUi) {
                     db.collection("users").document(uid)
                         .collection("history").document(todayIso)
                         .set(mapOf("steps" to localSteps))
-
-                    // L'aggiornamento della UI avverrà tramite il SnapshotListener
                 }
             }
         }
     }
 
-    private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
-        val uid = auth.currentUser?.uid ?: return
-        val todayIso = LocalDate.now().toString()
 
-        historyListener?.remove()
-        historyListener = db.collection("users").document(uid)
-            .collection("history").document(todayIso)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) return@addSnapshotListener
 
-                if (snapshot != null && snapshot.exists()) {
-                    val firestoreSteps = snapshot.getLong("steps")?.toInt() ?: 0
-                    updateUI(firestoreSteps, todayIso)
-                }
-                onFirstLoad()
+//    private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
+//        val uid = auth.currentUser?.uid ?: return
+//        val todayIso = LocalDate.now().toString()
+//
+//        historyListener?.remove()
+//        historyListener = db.collection("users").document(uid)
+//            .collection("history").document(todayIso)
+//            .addSnapshotListener { snapshot, error ->
+//                if (error != null) return@addSnapshotListener
+//
+//                if (snapshot != null && snapshot.exists()) {
+//                    val firestoreSteps = snapshot.getLong("steps")?.toInt() ?: 0
+//                    updateUI(firestoreSteps, todayIso)
+//                }
+//                onFirstLoad()
+//            }
+//    }
+private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
+    val uid = auth.currentUser?.uid ?: return
+    val todayIso = LocalDate.now().toString()
+
+    historyListener?.remove()
+    historyListener = db.collection("users").document(uid)
+        .collection("history").document(todayIso)
+        .addSnapshotListener { snapshot, error ->
+            if (error != null) return@addSnapshotListener
+
+            if (snapshot != null && snapshot.exists()) {
+                val firestoreSteps = snapshot.getLong("steps")?.toInt() ?: 0
+                updateUI(firestoreSteps, todayIso)
+            } else {
+                // ✅ If no remote doc yet, show what we already have locally
+                val local = _uiState.value.steps
+                if (local > 0) updateUI(local, todayIso)
             }
-    }
+            onFirstLoad()
+        }
+}
+
 
     private fun updateUI(steps: Int, dateIso: String) {
         val todayIso = LocalDate.now().toString()
@@ -216,22 +282,24 @@ class HomeViewModel(
 
     private fun refreshWeeklySteps(todayIso: String) {
         viewModelScope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
             val today = LocalDate.parse(todayIso)
             val last7 = (6 downTo 0).map { today.minusDays(it.toLong()).toString() }
-            val values = last7.map { iso -> store.getStepsForDateIso(iso) }
+            val values = last7.map { iso -> store.getStepsForDateIso(uid,iso) }
             _uiState.update { it.copy(weeklySteps = values) }
         }
     }
 
     private fun refreshCalendarSteps(monthsBack: Long = 11) {
         viewModelScope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
             val today = LocalDate.now()
             val start = today.minusMonths(monthsBack).withDayOfMonth(1)
             val map = LinkedHashMap<String, Int>()
             var d = start
             while (!d.isAfter(today)) {
                 val iso = d.toString()
-                map[iso] = store.getStepsForDateIso(iso)
+                map[iso] = store.getStepsForDateIso(uid,iso)
                 d = d.plusDays(1)
             }
             _uiState.update { it.copy(stepsByDateIso = map) }
@@ -240,7 +308,8 @@ class HomeViewModel(
 
     private fun loadSelectedDayFromStore(dateIso: String) {
         viewModelScope.launch {
-            val steps = store.getStepsForDateIso(dateIso)
+            val uid = auth.currentUser?.uid ?: return@launch
+            val steps = store.getStepsForDateIso(uid,dateIso)
             val kmText = stepsToKm(steps)
             val weight = _uiState.value.weightKg ?: 70.0
             val kcalValue = (weight * kmText.toDouble() * 0.75).roundToInt()
@@ -261,7 +330,8 @@ class HomeViewModel(
 
     fun selectDay(dateIso: String) {
         viewModelScope.launch {
-            val steps = store.getStepsForDateIso(dateIso)
+            val uid = auth.currentUser?.uid ?: return@launch
+            val steps = store.getStepsForDateIso(uid,dateIso)
             val kmText = stepsToKm(steps)
             val weight = _uiState.value.weightKg ?: 70.0
             val kcalValue = (weight * kmText.toDouble() * 0.75).roundToInt()
@@ -300,6 +370,7 @@ class HomeViewModel(
 
     private fun refreshStreak(todayIso: String, dailyGoal: Int) {
         viewModelScope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
             if (dailyGoal <= 0) {
                 _uiState.update { it.copy(streakDays = 0) }
                 return@launch
@@ -316,7 +387,7 @@ class HomeViewModel(
                 for (i in 1..365) {
                     val dIso = today.minusDays(i.toLong()).toString()
                     // Cerchiamo nella mappa dei passi che abbiamo già (caricata dal calendario/weekly)
-                    val steps = store.getStepsForDateIso(dIso)
+                    val steps = store.getStepsForDateIso(uid,dIso)
 
                     if (steps >= dailyGoal) {
                         streak++
@@ -329,7 +400,7 @@ class HomeViewModel(
                 // comunque attivo se ieri lo avevamo raggiunto (streak "pendente")
                 for (i in 1..365) {
                     val dIso = today.minusDays(i.toLong()).toString()
-                    val steps = store.getStepsForDateIso(dIso)
+                    val steps = store.getStepsForDateIso(uid,dIso)
                     if (steps >= dailyGoal) streak++ else break
                 }
             }
@@ -339,10 +410,13 @@ class HomeViewModel(
     }
 
     override fun onCleared() {
+        auth.removeAuthStateListener(authListener)
+        stepsCollectorJob?.cancel()
         goalListener?.remove()
         historyListener?.remove()
         super.onCleared()
     }
+
 
     private fun observeUserSettingsFromFirestore() {
         val uid = auth.currentUser?.uid ?: return
@@ -395,7 +469,7 @@ class HomeViewModel(
                 querySnapshot.documents.forEach { doc ->
                     val dateIso = doc.id
                     val steps = doc.getLong("steps")?.toInt() ?: 0
-                    store.saveSteps(dateIso, steps)
+                    store.saveSteps(uid,dateIso,steps)
                 }
 
                 // 3. SOLO ORA ricalcoliamo lo streak, perché ora i dati ci sono!

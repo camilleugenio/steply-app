@@ -26,6 +26,8 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import kotlin.math.sqrt
+import com.google.firebase.auth.FirebaseAuth
+
 
 class StepForegroundService : Service(), SensorEventListener {
 
@@ -58,6 +60,8 @@ class StepForegroundService : Service(), SensorEventListener {
         }
     }
 
+    private var uid: String? = null
+
     private val serviceJob = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
 
@@ -81,6 +85,8 @@ class StepForegroundService : Service(), SensorEventListener {
     override fun onCreate() {
         super.onCreate()
         store = StepDataStore(applicationContext)
+        uid = FirebaseAuth.getInstance().currentUser?.uid
+
         stepSensor = StepSensor(applicationContext)
 
         sensorManager = getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -91,6 +97,8 @@ class StepForegroundService : Service(), SensorEventListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        uid = FirebaseAuth.getInstance().currentUser?.uid
+
         when (intent?.action) {
             ACTION_START -> startTracking()
             ACTION_STOP -> stopTracking()
@@ -103,20 +111,28 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- TRACKING --------------------
 
     private fun startTracking() {
+        if (uid == null) {
+            stopSelf()
+            return
+        }
+
         if (listening) return
         listening = true
 
         scope.launch { store.setTrackingEnabled(true) }
 
-        // Show foreground notification immediately
+
         scope.launch {
             val goal = store.getDailyGoal(default = 50)
             startForeground(NOTIF_ID, buildNotification(steps = 0, goal = goal))
         }
 
+
         scope.launch {
-            dayStart = store.getDayStartEpoch()
-            baseSteps = store.getBaseStepsFromBoot()
+            val u = uid ?: return@launch
+            dayStart = store.getDayStartEpoch(u)
+            baseSteps = store.getBaseStepsFromBoot(u)
+
         }
 
         // If step counter sensor exists -> use it (real phone behavior)
@@ -157,26 +173,35 @@ class StepForegroundService : Service(), SensorEventListener {
         stepSensor.startListening { currentFromBoot ->
             scope.launch {
                 val midnight = todayMidnightEpochMillis()
+                val u = uid ?: return@launch
+                if (dayStart == 0L) {
+                    dayStart = midnight
+                    baseSteps = currentFromBoot
+                    store.setBaseline(u, dayStart, baseSteps)
+                }
+
+
 
                 // New day -> reset baseline + allow goal notification again
                 if (dayStart != midnight) {
                     dayStart = midnight
                     baseSteps = currentFromBoot
-                    store.setBaseline(dayStart, baseSteps)
+                    store.setBaseline(u, dayStart, baseSteps)
                     store.clearGoalNotifiedIso()
                 }
 
                 // Reboot-safe
                 if (currentFromBoot < baseSteps) {
                     baseSteps = currentFromBoot
-                    store.setBaseline(dayStart, baseSteps)
+                    store.setBaseline(u, dayStart, baseSteps)
                 }
 
                 val todaySteps = (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
 
                 // Persist + update notif + maybe goal
-                store.setStepsForDayStartEpoch(dayStart, todaySteps)
+                store.setStepsForDayStartEpoch(u, dayStart, todaySteps)
                 maybeNotifyGoal(todaySteps)
+
 
                 val goal = store.getDailyGoal(default = 50)
                 startForeground(NOTIF_ID, buildNotification(todaySteps, goal))
@@ -227,12 +252,14 @@ class StepForegroundService : Service(), SensorEventListener {
                 }
 
                 // increment today steps based on stored value
-                val current = store.getStepsForDayStartEpoch(midnight)
-                val next = current + 1
 
-                store.setStepsForDayStartEpoch(midnight, next)
+                val u = uid ?: return@launch
+                val current = store.getStepsForDayStartEpoch(u, midnight)
+                val next = current + 1
+                store.setStepsForDayStartEpoch(u, midnight, next)
                 maybeNotifyGoal(next)
 
+//                startForeground(NOTIF_ID, buildNotification(next))
                 val goal = store.getDailyGoal(default = 50)
                 startForeground(NOTIF_ID, buildNotification(next, goal))
             }
@@ -244,7 +271,7 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- GOAL NOTIFICATION --------------------
 
     private suspend fun maybeNotifyGoal(todaySteps: Int) {
-        // Bell OFF => do not send goal notification
+        // ✅ Bell OFF => do not send goal notification
         if (!store.isGoalNotificationEnabled()) return
 
         val goal = store.getDailyGoal(default = 50)
@@ -292,7 +319,7 @@ class StepForegroundService : Service(), SensorEventListener {
     private fun buildGoalReachedNotification(steps: Int, goal: Int): Notification {
         val openAppIntent = PendingIntent.getActivity(
             this,
-            1,
+            1, // different request code from foreground notification
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },

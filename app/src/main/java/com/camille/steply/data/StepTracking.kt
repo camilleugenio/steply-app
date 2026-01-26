@@ -1,6 +1,8 @@
 package com.camille.steply.data
 
 import android.content.Context
+import androidx.work.workDataOf
+
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -57,38 +59,184 @@ fun nextMidnightDelayMillis(
 
 private val Context.dataStore by preferencesDataStore(name = "steps_store")
 
+//class StepDataStore(private val context: Context) {
+//
+//    private val KEY_DAY_START = longPreferencesKey("day_start_epoch")
+//    private val KEY_BASE_STEPS = longPreferencesKey("base_steps_from_boot")
+//    private val KEY_SIM_STEPS_TODAY = intPreferencesKey("sim_steps_today")
+//    private val KEY_SIM_DAY_START = longPreferencesKey("sim_day_start")
+//    private val KEY_TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
+//    private val KEY_DAILY_GOAL = intPreferencesKey("daily_goal")
+//    private val KEY_GOAL_NOTIFIED_ISO = stringPreferencesKey("goal_notified_iso")
+//    private val KEY_GOAL_NOTIFICATION_ENABLED = booleanPreferencesKey("goal_notification_enabled")
+//
+//
+//    private val dataStore = context.dataStore
+//
+//    // -------------------- Versione Mobile --------------------
+//    suspend fun getDayStartEpoch(): Long {
+//        return dataStore.data.first()[KEY_DAY_START] ?: 0L
+//    }
+//
+//    suspend fun getBaseStepsFromBoot(): Long {
+//        return dataStore.data.first()[KEY_BASE_STEPS] ?: 0L
+//    }
+//
+//    suspend fun setBaseline(
+//        dayStartEpoch: Long,
+//        baseStepsFromBoot: Long
+//    ) {
+//        dataStore.edit { prefs ->
+//            prefs[KEY_DAY_START] = dayStartEpoch
+//            prefs[KEY_BASE_STEPS] = baseStepsFromBoot
+//        }
+//    }
+//
+//    suspend fun setTrackingEnabled(enabled: Boolean) {
+//        dataStore.edit { prefs -> prefs[KEY_TRACKING_ENABLED] = enabled }
+//    }
+//
+//    suspend fun isTrackingEnabled(): Boolean {
+//        return dataStore.data.first()[KEY_TRACKING_ENABLED] ?: false
+//    }
+//
+//    fun trackingEnabledFlow(): Flow<Boolean> {
+//        return dataStore.data.map { prefs -> prefs[KEY_TRACKING_ENABLED] ?: false }
+//    }
+//
+//    suspend fun setGoalNotificationEnabled(enabled: Boolean) {
+//        dataStore.edit { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] = enabled }
+//    }
+//
+//    suspend fun isGoalNotificationEnabled(): Boolean {
+//        return dataStore.data.first()[KEY_GOAL_NOTIFICATION_ENABLED] ?: true
+//    }
+//
+//    fun goalNotificationEnabledFlow(): Flow<Boolean> {
+//        return dataStore.data.map { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] ?: true }
+//    }
+//
+//    // Daily goal
+//    suspend fun getDailyGoal(default: Int = 50): Int {
+//        return dataStore.data.first()[KEY_DAILY_GOAL] ?: default
+//    }
+//
+//    suspend fun setDailyGoal(value: Int) {
+//        dataStore.edit { prefs -> prefs[KEY_DAILY_GOAL] = value }
+//    }
+//
+//    // Goal notification (one-shot per day)
+//    suspend fun getGoalNotifiedIso(): String? {
+//        return dataStore.data.first()[KEY_GOAL_NOTIFIED_ISO]
+//    }
+//
+//    suspend fun setGoalNotifiedIso(iso: String) {
+//        dataStore.edit { prefs -> prefs[KEY_GOAL_NOTIFIED_ISO] = iso }
+//    }
+//
+//    suspend fun clearGoalNotifiedIso() {
+//        dataStore.edit { prefs -> prefs.remove(KEY_GOAL_NOTIFIED_ISO) }
+//    }
+//
+//    // -------------------- Versione Emulator --------------------
+//    suspend fun getSimDayStart(): Long {
+//        return dataStore.data.first()[KEY_SIM_DAY_START] ?: 0L
+//    }
+//
+//    suspend fun setSimDayStart(value: Long) {
+//        dataStore.edit { it[KEY_SIM_DAY_START] = value }
+//    }
+//
+//    suspend fun getSimStepsToday(): Int {
+//        return dataStore.data.first()[KEY_SIM_STEPS_TODAY] ?: 0
+//    }
+//
+//    suspend fun setSimStepsToday(value: Int) {
+//        dataStore.edit { it[KEY_SIM_STEPS_TODAY] = value }
+//    }
+//
+//    // ---------- STEPS PER GIORNO (storico) ----------
+//
+//    private fun dayKeyIso(iso: String) = intPreferencesKey("steps_$iso")
+//
+//    suspend fun getStepsForDateIso(iso: String): Int {
+//        return dataStore.data.first()[dayKeyIso(iso)] ?: 0
+//    }
+//
+//    suspend fun setStepsForDateIso(iso: String, steps: Int) {
+//        dataStore.edit { prefs ->
+//            prefs[dayKeyIso(iso)] = steps
+//        }
+//    }
+//
+//    suspend fun saveSteps(iso: String, steps: Int) {
+//        setStepsForDateIso(iso, steps)
+//    }
+//
+//    fun stepsForDateIsoFlow(iso: String): Flow<Int> {
+//        return dataStore.data.map { prefs -> prefs[dayKeyIso(iso)] ?: 0 }
+//    }
+//
+//    fun todayStepsFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<Int> {
+//        val todayIso = LocalDate.now(zoneId).toString()
+//        return stepsForDateIsoFlow(todayIso)
+//    }
+//
+//    suspend fun getStepsForDayStartEpoch(
+//        dayStartEpoch: Long,
+//        zoneId: ZoneId = ZoneId.systemDefault()
+//    ): Int {
+//        val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
+//        return getStepsForDateIso(iso)
+//    }
+//
+//    suspend fun setStepsForDayStartEpoch(
+//        dayStartEpoch: Long,
+//        steps: Int,
+//        zoneId: ZoneId = ZoneId.systemDefault()
+//    ) {
+//        val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
+//        setStepsForDateIso(iso, steps)
+//    }
+//}
 class StepDataStore(private val context: Context) {
-
-    private val KEY_DAY_START = longPreferencesKey("day_start_epoch")
-    private val KEY_BASE_STEPS = longPreferencesKey("base_steps_from_boot")
-    private val KEY_SIM_STEPS_TODAY = intPreferencesKey("sim_steps_today")
-    private val KEY_SIM_DAY_START = longPreferencesKey("sim_day_start")
-    private val KEY_TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
-    private val KEY_DAILY_GOAL = intPreferencesKey("daily_goal")
-    private val KEY_GOAL_NOTIFIED_ISO = stringPreferencesKey("goal_notified_iso")
-    private val KEY_GOAL_NOTIFICATION_ENABLED = booleanPreferencesKey("goal_notification_enabled")
-
 
     private val dataStore = context.dataStore
 
-    // -------------------- Versione Mobile --------------------
-    suspend fun getDayStartEpoch(): Long {
-        return dataStore.data.first()[KEY_DAY_START] ?: 0L
+    // -------------------- USER-SCOPED KEYS --------------------
+
+    private fun keyDayStart(uid: String) = longPreferencesKey("${uid}_day_start_epoch")
+    private fun keyBaseSteps(uid: String) = longPreferencesKey("${uid}_base_steps_from_boot")
+
+    private fun keySimStepsToday(uid: String) = intPreferencesKey("${uid}_sim_steps_today")
+    private fun keySimDayStart(uid: String) = longPreferencesKey("${uid}_sim_day_start")
+
+    private val KEY_TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled") // global is fine
+    private val KEY_DAILY_GOAL = intPreferencesKey("daily_goal") // you may want this per-user too
+    private val KEY_GOAL_NOTIFIED_ISO = stringPreferencesKey("goal_notified_iso") // consider per-user
+    private val KEY_GOAL_NOTIFICATION_ENABLED = booleanPreferencesKey("goal_notification_enabled") // ok global
+
+    // ---------- STEPS PER GIORNO (storico) ----------
+    private fun dayKeyIso(uid: String, iso: String) = intPreferencesKey("${uid}_steps_$iso")
+
+    // -------------------- Baseline (per user) --------------------
+
+    suspend fun getDayStartEpoch(uid: String): Long {
+        return dataStore.data.first()[keyDayStart(uid)] ?: 0L
     }
 
-    suspend fun getBaseStepsFromBoot(): Long {
-        return dataStore.data.first()[KEY_BASE_STEPS] ?: 0L
+    suspend fun getBaseStepsFromBoot(uid: String): Long {
+        return dataStore.data.first()[keyBaseSteps(uid)] ?: 0L
     }
 
-    suspend fun setBaseline(
-        dayStartEpoch: Long,
-        baseStepsFromBoot: Long
-    ) {
+    suspend fun setBaseline(uid: String, dayStartEpoch: Long, baseStepsFromBoot: Long) {
         dataStore.edit { prefs ->
-            prefs[KEY_DAY_START] = dayStartEpoch
-            prefs[KEY_BASE_STEPS] = baseStepsFromBoot
+            prefs[keyDayStart(uid)] = dayStartEpoch
+            prefs[keyBaseSteps(uid)] = baseStepsFromBoot
         }
     }
+
+    // -------------------- Tracking enabled (global) --------------------
 
     suspend fun setTrackingEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_TRACKING_ENABLED] = enabled }
@@ -102,6 +250,8 @@ class StepDataStore(private val context: Context) {
         return dataStore.data.map { prefs -> prefs[KEY_TRACKING_ENABLED] ?: false }
     }
 
+    // -------------------- Goal notification enabled (global) --------------------
+
     suspend fun setGoalNotificationEnabled(enabled: Boolean) {
         dataStore.edit { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] = enabled }
     }
@@ -114,7 +264,8 @@ class StepDataStore(private val context: Context) {
         return dataStore.data.map { prefs -> prefs[KEY_GOAL_NOTIFICATION_ENABLED] ?: true }
     }
 
-    // Daily goal
+    // -------------------- Daily goal (global for now) --------------------
+
     suspend fun getDailyGoal(default: Int = 50): Int {
         return dataStore.data.first()[KEY_DAILY_GOAL] ?: default
     }
@@ -123,7 +274,8 @@ class StepDataStore(private val context: Context) {
         dataStore.edit { prefs -> prefs[KEY_DAILY_GOAL] = value }
     }
 
-    // Goal notification (one-shot per day)
+    // -------------------- Goal notified (global for now) --------------------
+
     suspend fun getGoalNotifiedIso(): String? {
         return dataStore.data.first()[KEY_GOAL_NOTIFIED_ISO]
     }
@@ -136,67 +288,60 @@ class StepDataStore(private val context: Context) {
         dataStore.edit { prefs -> prefs.remove(KEY_GOAL_NOTIFIED_ISO) }
     }
 
-    // -------------------- Versione Emulator --------------------
-    suspend fun getSimDayStart(): Long {
-        return dataStore.data.first()[KEY_SIM_DAY_START] ?: 0L
+    // -------------------- Emulator simulation (per user) --------------------
+
+    suspend fun getSimDayStart(uid: String): Long {
+        return dataStore.data.first()[keySimDayStart(uid)] ?: 0L
     }
 
-    suspend fun setSimDayStart(value: Long) {
-        dataStore.edit { it[KEY_SIM_DAY_START] = value }
+    suspend fun setSimDayStart(uid: String, value: Long) {
+        dataStore.edit { it[keySimDayStart(uid)] = value }
     }
 
-    suspend fun getSimStepsToday(): Int {
-        return dataStore.data.first()[KEY_SIM_STEPS_TODAY] ?: 0
+    suspend fun getSimStepsToday(uid: String): Int {
+        return dataStore.data.first()[keySimStepsToday(uid)] ?: 0
     }
 
-    suspend fun setSimStepsToday(value: Int) {
-        dataStore.edit { it[KEY_SIM_STEPS_TODAY] = value }
+    suspend fun setSimStepsToday(uid: String, value: Int) {
+        dataStore.edit { it[keySimStepsToday(uid)] = value }
     }
 
-    // ---------- STEPS PER GIORNO (storico) ----------
+    // -------------------- Steps per day (per user) --------------------
 
-    private fun dayKeyIso(iso: String) = intPreferencesKey("steps_$iso")
-
-    suspend fun getStepsForDateIso(iso: String): Int {
-        return dataStore.data.first()[dayKeyIso(iso)] ?: 0
+    suspend fun getStepsForDateIso(uid: String, iso: String): Int {
+        return dataStore.data.first()[dayKeyIso(uid, iso)] ?: 0
     }
 
-    suspend fun setStepsForDateIso(iso: String, steps: Int) {
+    suspend fun setStepsForDateIso(uid: String, iso: String, steps: Int) {
         dataStore.edit { prefs ->
-            prefs[dayKeyIso(iso)] = steps
+            prefs[dayKeyIso(uid, iso)] = steps
         }
     }
 
-    suspend fun saveSteps(iso: String, steps: Int) {
-        setStepsForDateIso(iso, steps)
+    suspend fun saveSteps(uid: String, iso: String, steps: Int) {
+        setStepsForDateIso(uid, iso, steps)
     }
 
-    fun stepsForDateIsoFlow(iso: String): Flow<Int> {
-        return dataStore.data.map { prefs -> prefs[dayKeyIso(iso)] ?: 0 }
+    fun stepsForDateIsoFlow(uid: String, iso: String): Flow<Int> {
+        return dataStore.data.map { prefs -> prefs[dayKeyIso(uid, iso)] ?: 0 }
     }
 
-    fun todayStepsFlow(zoneId: ZoneId = ZoneId.systemDefault()): Flow<Int> {
+    fun todayStepsFlow(uid: String, zoneId: ZoneId = ZoneId.systemDefault()): Flow<Int> {
         val todayIso = LocalDate.now(zoneId).toString()
-        return stepsForDateIsoFlow(todayIso)
+        return stepsForDateIsoFlow(uid, todayIso)
     }
 
-    suspend fun getStepsForDayStartEpoch(
-        dayStartEpoch: Long,
-        zoneId: ZoneId = ZoneId.systemDefault()
-    ): Int {
+    suspend fun getStepsForDayStartEpoch(uid: String, dayStartEpoch: Long, zoneId: ZoneId = ZoneId.systemDefault()): Int {
         val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
-        return getStepsForDateIso(iso)
+        return getStepsForDateIso(uid, iso)
     }
 
-    suspend fun setStepsForDayStartEpoch(
-        dayStartEpoch: Long,
-        steps: Int,
-        zoneId: ZoneId = ZoneId.systemDefault()
-    ) {
+    suspend fun setStepsForDayStartEpoch(uid: String, dayStartEpoch: Long, steps: Int, zoneId: ZoneId = ZoneId.systemDefault()) {
         val iso = Instant.ofEpochMilli(dayStartEpoch).atZone(zoneId).toLocalDate().toString()
-        setStepsForDateIso(iso, steps)
+        setStepsForDateIso(uid, iso, steps)
     }
 }
+
 
 // -------------------- STEP SENSOR --------------------
 
@@ -278,6 +423,8 @@ class MidnightBaselineWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        val uid = inputData.getString("uid") ?: return Result.success()
+
         val store = StepDataStore(applicationContext)
         val sensor = StepSensor(applicationContext)
 
@@ -286,22 +433,24 @@ class MidnightBaselineWorker(
 
         if (fromBoot > 0L) {
             store.setBaseline(
+                uid,
                 dayStartEpoch = midnight,
                 baseStepsFromBoot = fromBoot
             )
         }
 
-        scheduleNext(applicationContext)
+        scheduleNext(applicationContext,uid)
         return Result.success()
     }
 
     companion object {
         private const val UNIQUE_NAME = "midnight_steps_baseline"
 
-        fun scheduleNext(context: Context) {
+        fun scheduleNext(context: Context, uid: String) {
             val delay = nextMidnightDelayMillis()
 
             val request = OneTimeWorkRequestBuilder<MidnightBaselineWorker>()
+                .setInputData(workDataOf("uid" to uid))
                 .setInitialDelay(delay, TimeUnit.MILLISECONDS)
                 .build()
 

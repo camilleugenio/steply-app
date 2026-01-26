@@ -12,6 +12,8 @@ import androidx.core.content.ContextCompat
 import com.camille.steply.data.MidnightBaselineWorker
 import com.camille.steply.pages.MainNavGraph
 import com.camille.steply.ui.theme.SteplyTheme
+import com.google.firebase.auth.FirebaseAuth
+
 
 class MainActivity : ComponentActivity() {
 
@@ -29,12 +31,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Schedule reset at midnight
-        MidnightBaselineWorker.scheduleNext(this)
+        val uid = FirebaseAuth.getInstance().currentUser?.uid
+        if (uid != null) {
+            MidnightBaselineWorker.scheduleNext(this, uid)
+        }
 
         enableEdgeToEdge()
-
-        // Request permissions in a controlled sequence
         requestActivityRecognitionThenNotifications()
 
         setContent {
@@ -43,6 +45,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     private fun requestActivityRecognitionThenNotifications() {
         // Ask ACTIVITY_RECOGNITION first

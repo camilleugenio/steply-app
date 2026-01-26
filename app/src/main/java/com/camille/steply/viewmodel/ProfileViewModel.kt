@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.math.roundToInt
+import com.google.firebase.firestore.ListenerRegistration
+
 
 /**
  * UI State for the Profile
@@ -33,6 +35,29 @@ data class ProfileUiState(
 )
 
 class ProfileViewModel : ViewModel() {
+    private var userDocListener: ListenerRegistration? = null
+    private var historyListener: ListenerRegistration? = null
+
+    private val authListener = FirebaseAuth.AuthStateListener { fbAuth ->
+        val uid = fbAuth.currentUser?.uid
+        detachListeners()
+
+        // reset UI (prevents flashing old user)
+        _uiState.value = ProfileUiState()
+
+        if (uid != null) {
+            loadUserData()
+            observeGlobalStats()
+        }
+    }
+    private fun detachListeners() {
+        userDocListener?.remove()
+        userDocListener = null
+        historyListener?.remove()
+        historyListener = null
+    }
+
+
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState
@@ -47,11 +72,12 @@ class ProfileViewModel : ViewModel() {
             null
         }
     }
-
     init {
+        auth.addAuthStateListener(authListener)
+
+        // optional: if already logged in, start immediately (but don't duplicate)
         if (auth.currentUser != null) {
             loadUserData()
-            // Ascoltiamo i cambiamenti della history in tempo reale
             observeGlobalStats()
         }
     }
@@ -61,7 +87,8 @@ class ProfileViewModel : ViewModel() {
     private fun loadUserData() {
         val uid = auth.currentUser?.uid ?: return
 
-        db.collection("users").document(uid).addSnapshotListener { snapshot, error ->
+        userDocListener?.remove()
+        userDocListener=db.collection("users").document(uid).addSnapshotListener { snapshot, error ->
             if (error != null) {
                 _uiState.update { it.copy(message = "Error: ${error.message}") }
                 return@addSnapshotListener
@@ -90,7 +117,8 @@ class ProfileViewModel : ViewModel() {
 
         // Usiamo addSnapshotListener invece di get() così la OverviewCard
         // si aggiorna istantaneamente mentre l'utente cammina
-        db.collection("users").document(uid).collection("history")
+        historyListener?.remove()
+        historyListener=db.collection("users").document(uid).collection("history")
             .addSnapshotListener { querySnapshot, error ->
                 if (error != null || querySnapshot == null) return@addSnapshotListener
 
@@ -179,6 +207,13 @@ class ProfileViewModel : ViewModel() {
             }
 
     }
+
+    override fun onCleared() {
+        auth.removeAuthStateListener(authListener)
+        detachListeners()
+        super.onCleared()
+    }
+
 
     fun logout(onLogout: () -> Unit) {
         auth.signOut()
