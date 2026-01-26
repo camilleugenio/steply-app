@@ -216,15 +216,31 @@ private fun observeTodayHistoryFromFirestore(onFirstLoad: () -> Unit = {}) {
 
         _uiState.update { state ->
             val viewingToday = state.selectedDateIso == dateIso
+
+            // 1) aggiorna la mappa calendario con i nuovi passi
+            val newMap = state.stepsByDateIso.toMutableMap()
+            newMap[dateIso] = steps
+
+            // 2) ricalcola i 7 giorni della dashboard (coerenti col tuo WeeklyStepsLight)
+            val baseDay = LocalDate.parse(state.currentDateIso) // oppure LocalDate.now() se preferisci
+            val last7 = (6 downTo 0).map { baseDay.minusDays(it.toLong()).toString() }
+            val newWeekly = last7.map { iso -> newMap[iso] ?: 0 }
+
             state.copy(
                 steps = if (dateIso == todayIso) steps else state.steps,
                 km = if (dateIso == todayIso) kmText else state.km,
                 kcal = if (dateIso == todayIso) kcalValue.toString() else state.kcal,
+
                 selectedSteps = if (viewingToday) steps else state.selectedSteps,
                 selectedKm = if (viewingToday) kmText else state.selectedKm,
-                selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal
+                selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal,
+
+                // ✅ queste 2 righe sono la chiave
+                stepsByDateIso = newMap,
+                weeklySteps = newWeekly
             )
         }
+
         refreshStreak(dateIso, _uiState.value.dailyGoal)
     }
 

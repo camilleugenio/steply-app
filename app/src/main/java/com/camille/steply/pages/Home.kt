@@ -218,8 +218,8 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                 steps = uiState.selectedSteps,
                 dailyGoal = dailyGoal,
                 km = uiState.selectedKm,
-                kcal = uiState.selectedKcal,
-                onRefresh = { homeViewModel.simulateStepsDebug() }
+                kcal = uiState.selectedKcal
+                //onRefresh = { homeViewModel.simulateStepsDebug() }
             )
 
             Spacer(Modifier.height(12.dp))
@@ -325,8 +325,7 @@ private fun StepsMainCard(
     steps: Int,
     dailyGoal: Int,
     km: String,
-    kcal: String,
-    onRefresh: () -> Unit
+    kcal: String
 ) {
     val targetProgress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
     val animatedProgress by animateFloatAsState(
@@ -349,19 +348,19 @@ private fun StepsMainCard(
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Tasto Refresh per Debug
-            IconButton(
-                onClick = onRefresh,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(40.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Refresh,
-                    contentDescription = "Debug",
-                    tint = TextSecondary.copy(alpha = 0.3f)
-                )
-            }
+//            IconButton(
+//                onClick = onRefresh,
+//                modifier = Modifier
+//                    .align(Alignment.TopEnd)
+//                    .padding(8.dp)
+//                    .size(40.dp)
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.Refresh,
+//                    contentDescription = "Debug",
+//                    tint = TextSecondary.copy(alpha = 0.3f)
+//                )
+//            }
 
             Column(
                 modifier = Modifier
@@ -379,14 +378,14 @@ private fun StepsMainCard(
 
                 Spacer(Modifier.height(24.dp))
 
-                val progressColor = if (steps >= dailyGoal && dailyGoal > 0) Color(0xFF4CAF50) else Accent
+                val progressColor = progressColorForSteps(steps, dailyGoal)
 
                 Box(
                     modifier = Modifier.size(230.dp), // Aumentato leggermente il cerchio
                     contentAlignment = Alignment.Center
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
-                        val strokeWidth = 12.dp.toPx()
+                        val strokeWidth = 11.dp.toPx()
                         drawArc(
                             color = Color(0xFFE6E6EA),
                             startAngle = 0f,
