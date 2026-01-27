@@ -9,7 +9,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 
 object KcalRetrofit {
-    private const val BASE_URL = "http://sellero.pythonanywhere.com/"
+    private const val BASE_URL = "https://sellero.pythonanywhere.com/"
 
     private val moshi: Moshi by lazy {
         Moshi.Builder()

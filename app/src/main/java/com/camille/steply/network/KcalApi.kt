@@ -29,13 +29,13 @@ data class UpdateWorkoutResponse(
 )
 
 interface KcalApi {
-    @GET("health/")
+    @GET("health")
     suspend fun health(): Map<String, String>
 
-    @POST("workouts/start/")
+    @POST("workouts/start")
     suspend fun startWorkout(@Body body: StartWorkoutRequest): StartWorkoutResponse
 
-    @POST("workouts/{id}/update/")
+    @POST("workouts/{id}/update")
     suspend fun updateWorkout(
         @Path("id") workoutId: String,
         @Body body: UpdateWorkoutRequest
