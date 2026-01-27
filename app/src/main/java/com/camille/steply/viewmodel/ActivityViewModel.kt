@@ -182,4 +182,48 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    fun deleteWorkout(snap: WorkoutReportSnapshot) {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Lo snapshot ha già l'ID dell'allenamento e la data (formattata o ricavabile)
+        val idAllenamento = snap.idAllenamento ?: ""
+
+        // Per ricostruire il documentKey usato in precedenza: ${idAllenamento}_${dataIso}
+        // Dobbiamo assicurarci di avere la dataIso. Se non è nello snapshot,
+        // possiamo ricavarla da startTimeMs
+        val dateIso = java.time.Instant.ofEpochMilli(snap.startTimeMs)
+            .atZone(java.time.ZoneId.systemDefault())
+            .toLocalDate()
+            .toString()
+
+        val documentKey = "${idAllenamento}_$dateIso"
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Elimina da Firestore
+                db.collection("users").document(uid)
+                    .collection("workouts").document(documentKey)
+                    .delete()
+                    .await()
+
+                // 2. Elimina la foto dallo Storage (se presente)
+                val storageRef = FirebaseStorage.getInstance().reference
+                    .child("users")
+                    .child(uid)
+                    .child("workout_photos")
+                    .child("$idAllenamento.jpg")
+
+                try {
+                    storageRef.delete().await()
+                } catch (e: Exception) {
+                    // Foto non presente, ignoriamo
+                }
+
+                Log.d("DELETE_DEBUG", "Eliminato documento: $documentKey")
+            } catch (e: Exception) {
+                Log.e("DELETE_DEBUG", "Errore eliminazione: ${e.message}")
+            }
+        }
+    }
 }

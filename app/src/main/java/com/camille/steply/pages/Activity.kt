@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsBike
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.DirectionsWalk
@@ -46,7 +47,6 @@ import com.camille.steply.viewmodel.ActivityEvent
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.compose.runtime.DisposableEffect
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -205,10 +205,12 @@ fun ActivityScreen(
                         ActivityHistorySection(
                             history = historyItems,
                             onClick = { snap ->
-                                // Passiamo i dati al report tramite SavedStateHandle
                                 navController.currentBackStackEntry?.savedStateHandle?.set(Routes.WORKOUT_REPORT_SNAPSHOT, snap)
                                 navController.currentBackStackEntry?.savedStateHandle?.set(Routes.FROM_HISTORY, true)
                                 navController.navigate(Routes.WORKOUT_REPORT)
+                            },
+                            onDelete = { snap ->
+                                activityViewModel.deleteWorkout(snap)
                             },
                             modifier = Modifier.fillMaxWidth().weight(1f)
                         )
@@ -330,7 +332,12 @@ private fun CountdownFullScreen(number: Int, label: String, color: Color) {
 }
 
 @Composable
-private fun ActivityHistorySection(history: List<WorkoutReportSnapshot>, onClick: (WorkoutReportSnapshot) -> Unit, modifier: Modifier = Modifier) {
+private fun ActivityHistorySection(
+    history: List<WorkoutReportSnapshot>,
+    onClick: (WorkoutReportSnapshot) -> Unit,
+    onDelete: (WorkoutReportSnapshot) -> Unit,
+    modifier: Modifier = Modifier
+) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val currentMonthKey by remember(history, listState) {
         derivedStateOf {
@@ -347,10 +354,82 @@ private fun ActivityHistorySection(history: List<WorkoutReportSnapshot>, onClick
         Spacer(Modifier.height(2.dp))
         FadedEdgesLazyColumn(state = listState, topFadeHeight = 26.dp, bottomFadeHeight = 26.dp) {
             items(items = history, key = { it.startTimeMs }) { snap ->
-                WorkoutHistoryRow(snap = snap, onClick = { onClick(snap) })
+                SwipeableWorkoutRow(
+                    snap = snap,
+                    onClick = { onClick(snap) },
+                    onDelete = { onDelete(snap) }
+                )
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableWorkoutRow(
+    snap: WorkoutReportSnapshot,
+    onClick: () -> Unit,
+    onDelete: (WorkoutReportSnapshot) -> Unit
+) {
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = {
+            if (it == SwipeToDismissBoxValue.EndToStart) {
+                showConfirmDialog = true
+                false
+            } else false
+        }
+    )
+
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            title = { Text("Delete Activity", fontWeight = FontWeight.Bold) },
+            text = { Text("Are you sure you want to delete this workout? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDelete(snap)
+                    showConfirmDialog = false
+                }) {
+                    Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Cancel", color = Color.Gray)
+                }
+            }
+        )
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            val color = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart) {
+                Color(0xFFE53935)
+            } else Color.Transparent
+
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(color),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 24.dp).size(28.dp)
+                )
+            }
+        },
+        content = {
+            WorkoutHistoryRow(snap = snap, onClick = onClick)
+        }
+    )
 }
 
 private fun yearMonthKey(ms: Long): String {
@@ -378,7 +457,15 @@ private fun WorkoutHistoryRow(snap: WorkoutReportSnapshot, onClick: () -> Unit) 
     val timeText = remember(snap.startTimeMs) { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(snap.startTimeMs)) }
     val dayText = remember(snap.startTimeMs) { SimpleDateFormat("EEEE d MMMM", Locale.ENGLISH).format(Date(snap.startTimeMs)) }
 
-    Surface(modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(20.dp)).clickable { onClick() }, color = Color.White, shadowElevation = 8.dp) {
+    Surface(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() },
+        color = Color.White,
+        shadowElevation = 8.dp
+    ) {
         Row(modifier = Modifier.padding(vertical = 12.dp, horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(56.dp).clip(CircleShape).background(tint.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
                 Icon(imageVector = icon, contentDescription = null, tint = tint, modifier = Modifier.size(26.dp))
@@ -432,4 +519,3 @@ private fun FadedEdgesLazyColumn(state: androidx.compose.foundation.lazy.LazyLis
         Box(modifier = Modifier.fillMaxWidth().height(bottomFadeHeight).align(Alignment.BottomCenter).background(Brush.verticalGradient(colors = listOf(bg.copy(alpha = 0f), bg))))
     }
 }
-
