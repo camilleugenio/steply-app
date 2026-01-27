@@ -49,6 +49,24 @@ class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
                 val list = snapshot?.documents?.mapNotNull { doc ->
                     val workout = doc.toObject(WorkoutData::class.java)
                     workout?.let {
+
+                        val points = it.percorso.map { gp ->
+                            LatLngP(gp.latitude, gp.longitude)
+                        }
+
+                        val segments = if (points.size >= 2) {
+                            listOf(
+                                TrackSegmentP(
+                                    dashed = false,
+                                    points = points
+                                )
+                            )
+                        } else {
+                            emptyList()
+                        }
+
+                        val startPoint = points.firstOrNull()
+
                         // Mappiamo i dati da Firebase al modello della UI
                         WorkoutReportSnapshot(
                             type = it.tipo,
@@ -56,10 +74,11 @@ class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
                             durationSec = it.durataSec.toInt(),
                             distanceMeters = it.km * 1000.0,
                             kcal = it.calorie.roundToInt(),
-                            meteoEmoji = "",
-                            meteoTempC = "--",
-                            startPoint = null,
-                            segments = emptyList()
+                            meteoEmoji = it.meteoEmoji,
+                            meteoTempC = it.meteoTempC,
+                            startPoint = startPoint,
+                            segments = segments,
+                            photoUri = null
                         )
                     }
                 } ?: emptyList()

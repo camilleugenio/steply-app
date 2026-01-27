@@ -221,7 +221,9 @@ fun WorkoutScreen(
                                     durataSec = elapsedSec.toLong(),
                                     km = st.distanceMeters / 1000.0,
                                     calorie = finalKcal,
-                                    percorso = googleGeoPoints
+                                    percorso = googleGeoPoints,
+                                    meteoEmoji = homeState.meteoDesc,
+                                    meteoTempC = homeState.meteoTempC
                                 )
 
                                 // 4. Prepare Snapshot

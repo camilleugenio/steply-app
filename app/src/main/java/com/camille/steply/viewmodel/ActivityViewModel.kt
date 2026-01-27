@@ -82,7 +82,9 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         durataSec: Long,
         km: Double,
         calorie: Double,
-        percorso: List<GeoPoint>
+        percorso: List<GeoPoint>,
+        meteoEmoji: String,
+        meteoTempC: String
     ) {
         val uid = auth.currentUser?.uid ?: return
         val idAllenamento = _uiState.value.currentWorkoutId ?: return
@@ -97,6 +99,8 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
             km = km,
             calorie = calorie,
             percorso = percorso,
+            meteoEmoji = meteoEmoji,
+            meteoTempC = meteoTempC,
             timestamp = System.currentTimeMillis()
         )
 
