@@ -2,43 +2,70 @@ package com.camille.steply.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
-import com.camille.steply.data.history.WorkoutHistoryRepository
+import com.camille.steply.data.WorkoutData
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
-
-data class WorkoutHistoryUiState(
-    val isLoading: Boolean = true,
-    val items: List<WorkoutReportSnapshot> = emptyList()
-)
+import kotlin.math.roundToInt
 
 class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
+    private val auth = FirebaseAuth.getInstance()
+    private val db = FirebaseFirestore.getInstance()
 
-    private val repo = WorkoutHistoryRepository(app.applicationContext)
+    // Flusso per la lista dei workout
+    private val _items = MutableStateFlow<List<WorkoutReportSnapshot>>(emptyList())
+    val items: StateFlow<List<WorkoutReportSnapshot>> = _items.asStateFlow()
 
-    private val _uiState = MutableStateFlow(WorkoutHistoryUiState())
-    val uiState: StateFlow<WorkoutHistoryUiState> = _uiState.asStateFlow()
+    // Flusso per lo stato di caricamento
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    init {
-        viewModelScope.launch {
-            repo.history.collect { list ->
-                _uiState.value = WorkoutHistoryUiState(
-                    isLoading = false,
-                    items = list
-                )
-            }
+    /**
+     * Ascolta in tempo reale i workout dell'utente corrente su Firestore.
+     * Grazie all'UID, ogni utente vedrà solo i propri dati.
+     */
+    fun monitorUserHistory() {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Evitiamo di far partire il caricamento se la lista è già popolata
+        // (opzionale, ma rende la UI più fluida)
+        if (_items.value.isEmpty()) {
+            _isLoading.value = true
         }
+
+        db.collection("users").document(uid).collection("workouts")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, e ->
+                _isLoading.value = false
+
+                if (e != null) {
+                    android.util.Log.e("HISTORY", "Errore Firestore: ${e.message}")
+                    return@addSnapshotListener
+                }
+
+                val list = snapshot?.documents?.mapNotNull { doc ->
+                    val workout = doc.toObject(WorkoutData::class.java)
+                    workout?.let {
+                        // Mappiamo i dati da Firebase al modello della UI
+                        WorkoutReportSnapshot(
+                            type = it.tipo,
+                            startTimeMs = it.timestamp,
+                            durationSec = it.durataSec.toInt(),
+                            distanceMeters = it.km * 1000.0,
+                            kcal = it.calorie.roundToInt(),
+                            meteoEmoji = "",
+                            meteoTempC = "--",
+                            startPoint = null,
+                            segments = emptyList()
+                        )
+                    }
+                } ?: emptyList()
+
+                _items.value = list
+            }
     }
 
-    fun addWorkout(snapshot: WorkoutReportSnapshot) {
-        viewModelScope.launch { repo.add(snapshot) }
-    }
-
-    fun updatePhoto(startTimeMs: Long, photoUri: String?) {
-        viewModelScope.launch { repo.updatePhoto(startTimeMs, photoUri) }
-    }
 }
-
-

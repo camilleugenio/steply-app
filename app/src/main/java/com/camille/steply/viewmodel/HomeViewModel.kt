@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.camille.steply.data.location.LocationRepository
 import com.camille.steply.data.StepDataStore
 import com.camille.steply.data.StepSensor
+import com.camille.steply.data.WorkoutData
 import com.camille.steply.service.StepForegroundService
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +52,13 @@ data class HomeUiState(
     val meteoError: String? = null,
     val meteoTempC: String = "--",
     val meteoDesc: String = "-",
-    val stepsByDateIso: Map<String, Int> = emptyMap()
+    val stepsByDateIso: Map<String, Int> = emptyMap(),
+    val workoutList: List<WorkoutData> = emptyList(),
+    val totalWorkouts: Int = 0,
+    val totalKmWorkouts: Double = 0.0,
+    val totalKcalWorkouts: Double = 0.0,
+    val isRecording: Boolean = false,
+    val currentWorkoutId: String? = null
 )
 
 class HomeViewModel(
@@ -94,7 +101,6 @@ class HomeViewModel(
         historyListener?.remove()
         stepsCollectorJob?.cancel()
         stepsCollectorJob = null
-
         isFirestoreLoaded = false
 
         // Reset UI immediately to avoid showing previous user's data
@@ -113,7 +119,9 @@ class HomeViewModel(
                 selectedKm = "0.00",
                 selectedKcal = "0",
                 weeklySteps = List(7) { 0 },
-                stepsByDateIso = emptyMap()
+                stepsByDateIso = emptyMap(),
+                workoutList = emptyList(),
+                totalWorkouts = 0
             )
         }
 
@@ -124,17 +132,15 @@ class HomeViewModel(
         observeUserSettingsFromFirestore()
         syncHistoryFromFirestore()
         observeTodayHistoryFromFirestore { isFirestoreLoaded = true }
-
+        monitorWorkouts()
         // Refresh derived UI from local store (will be filled by Firestore sync)
         refreshWeeklySteps(LocalDate.now().toString())
         refreshCalendarSteps()
-
         // Restart local steps collector for the new account
         startTodayStepsCollector()
     }
 
     init {
-
         auth.addAuthStateListener(authListener)
     }
     private fun startTodayStepsCollector() {
@@ -488,5 +494,31 @@ class HomeViewModel(
                 Log.e("STREAK_DEBUG", "Errore sync: ${e.message}")
             }
         }
+    }
+
+    fun monitorWorkouts() {
+        val uid = auth.currentUser?.uid ?: return
+
+        db.collection("users").document(uid).collection("workouts")
+            .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("FIRESTORE", "Errore monitoraggio: ${e.message}")
+                    return@addSnapshotListener
+                }
+
+                // Trasforma i documenti in oggetti WorkoutData
+                val list = snapshot?.documents?.mapNotNull { it.toObject(WorkoutData::class.java) } ?: emptyList()
+
+                val sumKm = list.sumOf { it.km }
+                val sumKcal = list.sumOf { it.calorie }
+
+                _uiState.update { it.copy(
+                    workoutList = list,
+                    totalWorkouts = list.size,
+                    totalKmWorkouts = sumKm,
+                    totalKcalWorkouts = sumKcal
+                )}
+            }
     }
 }

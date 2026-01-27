@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -31,7 +30,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
@@ -57,6 +55,10 @@ fun Profile(
 
     val uiState by profileViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
+
+    val kmStepsOnly = uiState.totalKm // Questo valore viene dal calcolo dei passi salvati
+
+    // ---------------------------------
 
     val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
     val goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
@@ -177,15 +179,15 @@ fun Profile(
                 OverviewCard(
                     totalSteps = uiState.totalSteps,
                     bestDay = uiState.bestDaySteps,
-                    totalKm = uiState.totalKm,
-                    totalWorkouts = uiState.totalWorkouts,
+                    totalKm = kmStepsOnly,
+                    totalWorkouts = homeState.totalWorkouts,
                     homeViewModel = homeViewModel
                 )
 
                 GoalProgressCard(currentSteps = homeState.steps, goalSteps = goalSteps)
 
                 ProfileRowItem(
-                    label = "Weight",
+                    label = "Weight Tracker",
                     value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
                     icon = Icons.Default.Scale,
                     onClick = { navController.navigate("weight_history") }
@@ -307,7 +309,7 @@ fun OverviewCard(
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
-                text = "Your Overview",
+                text = "Your Journey",
                 modifier = Modifier.clickable { homeViewModel.simulateStepsDebug() }, // <--- AGGIUNGI QUESTO
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
@@ -316,13 +318,13 @@ fun OverviewCard(
             Spacer(modifier = Modifier.height(if (isSmall) 16.dp else 20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 OverviewStatItem(
-                    label = "Total Steps",
+                    label = "Lifetime Steps",
                     value = if (totalSteps > 99999) "${totalSteps / 1000}k" else totalSteps.toString(),
                     icon = Icons.Default.DirectionsWalk,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewStatItem(
-                    label = "Best Day",
+                    label = "Daily Record",
                     value = if (bestDay > 0) bestDay.toString() else "--",
                     icon = Icons.Default.EmojiEvents,
                     modifier = Modifier.weight(1f)
@@ -331,13 +333,13 @@ fun OverviewCard(
             Spacer(modifier = Modifier.height(if (isSmall) 16.dp else 20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 OverviewStatItem(
-                    label = "Total Dist.",
+                    label = "Walking Dist.",
                     value = "$totalKm km",
                     icon = Icons.Default.Map,
                     modifier = Modifier.weight(1f)
                 )
                 OverviewStatItem(
-                    label = "Workouts",
+                    label = "Workout sessions",
                     value = totalWorkouts.toString(),
                     icon = Icons.Default.FitnessCenter,
                     modifier = Modifier.weight(1f)

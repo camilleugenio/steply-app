@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.net.Uri
-import android.os.Parcelable
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -56,8 +55,6 @@ import com.google.android.gms.maps.model.Dash
 import com.google.android.gms.maps.model.Gap
 import com.google.android.gms.maps.model.PatternItem
 import com.google.maps.android.compose.*
-import kotlinx.parcelize.Parcelize
-import kotlinx.serialization.Serializable
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -147,7 +144,7 @@ fun WorkoutReportScreen(
             vm.onPhotoCaptured(newUri)
 
             if (!fromHistory) {
-                historyVm.updatePhoto(snapshot.startTimeMs, newUri)
+                //historyVm.updatePhoto(snapshot.startTimeMs, newUri)
             }
         } else {
             pendingCameraUri = null
@@ -706,12 +703,12 @@ private fun rememberStartMarkerIconWithLabel(
         val bmpH = (circlePx + gapPx + labelH).roundToInt()
 
         val imageBitmap = ImageBitmap(bmpW, bmpH)
-        val canvas = androidx.compose.ui.graphics.Canvas(imageBitmap)
+        val canvas = Canvas(imageBitmap)
 
         val centerX = bmpW / 2f
         val circleCenterY = circlePx / 2f
 
-        val circlePaint = androidx.compose.ui.graphics.Paint().apply { color = bgColor }
+        val circlePaint = Paint().apply { color = bgColor }
         canvas.drawCircle(Offset(centerX, circleCenterY), circlePx / 2f, circlePaint)
 
         val iconLeft = centerX - iconPx / 2f

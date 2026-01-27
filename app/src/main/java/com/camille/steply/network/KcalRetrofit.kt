@@ -9,7 +9,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 
 object KcalRetrofit {
-    private const val BASE_URL = "https://sellero.pythonanywhere.com/"
+    private const val BASE_URL = "http://sellero.pythonanywhere.com/"
 
     private val moshi: Moshi by lazy {
         Moshi.Builder()
@@ -24,6 +24,13 @@ object KcalRetrofit {
 
         val client = OkHttpClient.Builder()
             .addInterceptor(logger)
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("User-Agent", "SteplyAppClient")
+                    .header("Accept", "application/json")
+                    .build()
+                chain.proceed(request)
+            }
             .build()
 
         Retrofit.Builder()

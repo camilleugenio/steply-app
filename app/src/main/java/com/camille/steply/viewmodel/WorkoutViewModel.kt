@@ -31,15 +31,17 @@ data class TrackSegment(
 )
 
 class WorkoutViewModel(
-    private val locationRepository: LocationRepository,
     private val kcalApi: KcalApi
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(WorkoutMapState())
     val state: StateFlow<WorkoutMapState> = _state.asStateFlow()
 
+    private val _currentWorkoutId = MutableStateFlow<String?>(null)
+    val currentWorkoutId: StateFlow<String?> = _currentWorkoutId.asStateFlow()
     private var locationJob: Job? = null
     private var last: LatLng? = null
+
 
     // -------- KCAL (SERVER) --------
     private val _kcal = MutableStateFlow(0.0)
@@ -73,6 +75,7 @@ class WorkoutViewModel(
                     )
                 }.onSuccess { resp ->
                     workoutId = resp.workout_id
+                    _currentWorkoutId.value = resp.workout_id
                     android.util.Log.d("KCAL", "Started workoutId=${resp.workout_id}")
                 }.onFailure { e ->
                     android.util.Log.e("KCAL", "startWorkout FAILED", e)

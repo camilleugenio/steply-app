@@ -65,7 +65,7 @@ fun WeightHistory(navController: NavHostController) {
         containerColor = BgColor,
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Weight", fontWeight = FontWeight.Bold) },
+                title = { Text("Weight Tracker", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")

@@ -19,7 +19,6 @@ class WorkoutVmFactory(
 
             @Suppress("UNCHECKED_CAST")
             return WorkoutViewModel(
-                repo,
                 kcalApi = KcalRetrofit.api) as T
         }
 

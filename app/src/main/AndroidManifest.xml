@@ -20,6 +20,7 @@
 
 
     <application
+        android:usesCleartextTraffic="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -31,7 +32,7 @@
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="@string/google_maps_key" />
+            android:value="AIzaSyCxOT9Y3UOk5-JjH5-PvboF2CHVBqeOaQ8" />
 
         <activity
             android:name=".MainActivity"
