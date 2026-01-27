@@ -157,7 +157,7 @@ fun Profile(
             }
 
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 10.dp else 12.dp))
 
             // HEADER SECTION
             ProfileHeaderSection(
@@ -167,7 +167,7 @@ fun Profile(
                 streakCount = homeState.streakDays
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 14.dp else 16.dp))
 
             // CONTENT SECTION
             Column(
@@ -224,6 +224,7 @@ fun Profile(
 
 @Composable
 fun ProfileHeaderSection(name: String, username: String, photoUri: android.net.Uri?, streakCount: Int) {
+
     val (userRank, rankColor) = when {
         streakCount >= 30 -> "Legend" to Color(0xFF6200EE)
         streakCount >= 15 -> "Pro" to Color(0xFF007AFF)
@@ -295,6 +296,9 @@ fun OverviewCard(
     totalWorkouts: Int,
     homeViewModel: HomeViewModel
 ) {
+    val cfg = LocalConfiguration.current
+    val isSmall = cfg.screenWidthDp < 420
+
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -309,7 +313,7 @@ fun OverviewCard(
                 fontSize = 18.sp,
                 color = Color(0xFF111111)
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 16.dp else 20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 OverviewStatItem(
                     label = "Total Steps",
@@ -324,7 +328,7 @@ fun OverviewCard(
                     modifier = Modifier.weight(1f)
                 )
             }
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 16.dp else 20.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
                 OverviewStatItem(
                     label = "Total Dist.",
@@ -360,6 +364,8 @@ fun OverviewStatItem(label: String, value: String, icon: ImageVector, modifier: 
 @Composable
 fun GoalProgressCard(currentSteps: Int, goalSteps: Int) {
     val progress = (currentSteps.toFloat() / goalSteps.toFloat()).coerceIn(0f, 1f)
+    val cfg = LocalConfiguration.current
+    val isSmall = cfg.screenWidthDp < 420
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
@@ -378,7 +384,7 @@ fun GoalProgressCard(currentSteps: Int, goalSteps: Int) {
                 }
                 Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = AccentColor, fontSize = 15.sp)
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(if (isSmall) 14.dp else 16.dp))
             Box(modifier = Modifier.fillMaxWidth().height(8.dp).background(Color(0xFFF0F0F0), CircleShape)) {
                 Box(modifier = Modifier.fillMaxWidth(progress).fillMaxHeight().background(AccentColor, CircleShape))
             }

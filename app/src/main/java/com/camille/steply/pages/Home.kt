@@ -218,7 +218,8 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                 steps = uiState.selectedSteps,
                 dailyGoal = dailyGoal,
                 km = uiState.selectedKm,
-                kcal = uiState.selectedKcal
+                kcal = uiState.selectedKcal,
+                isSmall = isSmall
                 //onRefresh = { homeViewModel.simulateStepsDebug() }
             )
 
@@ -325,20 +326,22 @@ private fun StepsMainCard(
     steps: Int,
     dailyGoal: Int,
     km: String,
-    kcal: String
+    kcal: String,
+    isSmall: Boolean
 ) {
-    val targetProgress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
-    val animatedProgress by animateFloatAsState(
-        targetValue = targetProgress,
-        animationSpec = tween(durationMillis = 650),
-        label = "ringProgress"
-    )
+    val ringSize = if (isSmall) 200.dp else 230.dp
+    val ringPad = if (isSmall) 8.dp else 10.dp
+    val strokeDp = if (isSmall) 10.dp else 11.dp
 
-    val animatedSteps by animateIntAsState(
-        targetValue = steps,
-        animationSpec = tween(450),
-        label = "steps"
-    )
+    val titleSize = if (isSmall) 24.sp else 28.sp
+    val daySize = if (isSmall) 14.sp else 16.sp
+
+    val topPadV = if (isSmall) 16.dp else 20.dp
+    val spacerBeforeRing = if (isSmall) 18.dp else 24.dp
+
+    val targetProgress = if (dailyGoal <= 0) 0f else (steps.toFloat() / dailyGoal.toFloat()).coerceIn(0f, 1f)
+    val animatedProgress by animateFloatAsState(targetValue = targetProgress, animationSpec = tween(650), label = "ringProgress")
+    val animatedSteps by animateIntAsState(targetValue = steps, animationSpec = tween(450), label = "steps")
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
@@ -346,115 +349,91 @@ private fun StepsMainCard(
         color = Card,
         shadowElevation = 18.dp
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            // Tasto Refresh per Debug
-//            IconButton(
-//                onClick = onRefresh,
-//                modifier = Modifier
-//                    .align(Alignment.TopEnd)
-//                    .padding(8.dp)
-//                    .size(40.dp)
-//            ) {
-//                Icon(
-//                    imageVector = Icons.Default.Refresh,
-//                    contentDescription = "Debug",
-//                    tint = TextSecondary.copy(alpha = 0.3f)
-//                )
-//            }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = topPadV),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(dateLabel, color = TextSecondary, fontSize = daySize)
+            Text(
+                dateValue,
+                color = TextPrimary,
+                fontSize = titleSize,
+                fontWeight = FontWeight.SemiBold
+            )
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 18.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Spacer(Modifier.height(spacerBeforeRing))
+
+            val progressColor = progressColorForSteps(steps, dailyGoal)
+
+            Box(
+                modifier = Modifier.size(ringSize),
+                contentAlignment = Alignment.Center
             ) {
-                Text(dateLabel, color = TextSecondary, fontSize = 16.sp)
-                Text(
-                    dateValue,
-                    color = TextPrimary,
-                    fontSize = 28.sp, // Leggermente ridotto per dare respiro
-                    fontWeight = FontWeight.SemiBold
-                )
+                Canvas(modifier = Modifier.fillMaxSize().padding(ringPad)) {
+                    val strokeWidth = strokeDp.toPx()
+                    drawArc(
+                        color = Color(0xFFE6E6EA),
+                        startAngle = 0f,
+                        sweepAngle = 360f,
+                        useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                    drawArc(
+                        color = progressColor,
+                        startAngle = -90f,
+                        sweepAngle = 360f * animatedProgress,
+                        useCenter = false,
+                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                    )
+                }
 
-                Spacer(Modifier.height(24.dp))
+                val stepsStr = animatedSteps.toString()
+                val stepsFontSize = when {
+                    isSmall && stepsStr.length >= 6 -> 34.sp
+                    isSmall && stepsStr.length == 5 -> 40.sp
+                    isSmall -> 50.sp
+                    stepsStr.length >= 6 -> 40.sp
+                    stepsStr.length == 5 -> 48.sp
+                    else -> 60.sp
+                }
 
-                val progressColor = progressColorForSteps(steps, dailyGoal)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stepsStr, color = TextPrimary, fontSize = stepsFontSize, fontWeight = FontWeight.Bold, maxLines = 1)
 
-                Box(
-                    modifier = Modifier.size(230.dp), // Aumentato leggermente il cerchio
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize().padding(10.dp)) {
-                        val strokeWidth = 11.dp.toPx()
-                        drawArc(
-                            color = Color(0xFFE6E6EA),
-                            startAngle = 0f,
-                            sweepAngle = 360f,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                        )
-                        drawArc(
-                            color = progressColor,
-                            startAngle = -90f,
-                            sweepAngle = 360f * animatedProgress,
-                            useCenter = false,
-                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                        )
-                    }
+                    Text(
+                        text = "Steps",
+                        color = TextSecondary,
+                        fontSize = if (isSmall) 13.sp else 14.sp,
+                        modifier = Modifier.offset(y = (-4).dp)
+                    )
 
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    Spacer(Modifier.height(if (isSmall) 10.dp else 12.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // --- LOGICA DIMENSIONE FONT DINAMICA ---
-                        val stepsStr = animatedSteps.toString()
-                        val stepsFontSize = when {
-                            stepsStr.length >= 6 -> 40.sp
-                            stepsStr.length == 5 -> 48.sp
-                            else -> 60.sp
-                        }
-
-                        Text(
-                            text = stepsStr,
-                            color = TextPrimary,
-                            fontSize = stepsFontSize,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1
-                        )
-
-                        Text(
-                            text = "Steps",
-                            color = TextSecondary,
-                            fontSize = 14.sp,
-                            modifier = Modifier.offset(y = (-4).dp)
-                        )
-
-                        Spacer(Modifier.height(12.dp))
-
-                        // Info Mini (Km e Kcal)
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            InfoMini(value = km, label = "km")
-                            Box(modifier = Modifier.size(4.dp).background(TextSecondary.copy(0.3f), CircleShape))
-                            InfoMini(value = kcal, label = "kcal")
-                        }
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Text(
-                            text = "Goal: $dailyGoal",
-                            color = TextSecondary.copy(alpha = 0.7f),
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        InfoMini(value = km, label = "km")
+                        Box(modifier = Modifier.size(4.dp).background(TextSecondary.copy(0.3f), CircleShape))
+                        InfoMini(value = kcal, label = "kcal")
                     }
+
+                    Spacer(Modifier.height(8.dp))
+
+                    Text(
+                        text = "Goal: $dailyGoal",
+                        color = TextSecondary.copy(alpha = 0.7f),
+                        fontSize = if (isSmall) 12.sp else 13.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun InfoMini(value: String, label: String) {
