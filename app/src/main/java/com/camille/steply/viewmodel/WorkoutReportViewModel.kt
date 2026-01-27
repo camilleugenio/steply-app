@@ -18,6 +18,7 @@ data class TrackSegmentP(val dashed: Boolean, val points: List<LatLngP>) : Parce
 
 @Parcelize @Serializable
 data class WorkoutReportSnapshot(
+    val idAllenamento: String,
     val type: String,
     val startTimeMs: Long,
     val durationSec: Int,

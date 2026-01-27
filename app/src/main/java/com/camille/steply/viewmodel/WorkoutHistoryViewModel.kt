@@ -69,6 +69,7 @@ class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
 
                         // Mappiamo i dati da Firebase al modello della UI
                         WorkoutReportSnapshot(
+                            idAllenamento = it.idAllenamento,
                             type = it.tipo,
                             startTimeMs = it.timestamp,
                             durationSec = it.durataSec.toInt(),
@@ -78,7 +79,7 @@ class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
                             meteoTempC = it.meteoTempC,
                             startPoint = startPoint,
                             segments = segments,
-                            photoUri = null
+                            photoUri = it.photoUrl
                         )
                     }
                 } ?: emptyList()

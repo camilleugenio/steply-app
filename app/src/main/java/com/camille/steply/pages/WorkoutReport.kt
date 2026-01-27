@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Typeface
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -43,6 +44,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.camille.steply.viewmodel.ActivityViewModel
 import com.camille.steply.viewmodel.WorkoutHistoryViewModel
 import com.camille.steply.viewmodel.WorkoutReportViewModel
 import com.camille.steply.viewmodel.WorkoutReportEffect
@@ -93,6 +95,7 @@ import kotlin.math.roundToInt
 
 // -------------------- SCREEN --------------------
 
+
 @Composable
 fun WorkoutReportScreen(
     navController: NavController,
@@ -128,6 +131,7 @@ fun WorkoutReportScreen(
         vm.init(snapshot, fromHistory)
     }
 
+    val activityViewModel: ActivityViewModel = viewModel()
     val uiState by vm.uiState.collectAsState()
     val effect by vm.effect.collectAsState()
 
@@ -140,11 +144,18 @@ fun WorkoutReportScreen(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         if (success) {
-            val newUri = pendingCameraUri?.toString()
-            vm.onPhotoCaptured(newUri)
+            val uri = pendingCameraUri
+            if (uri != null) {
+                // Mostra la foto nella Polaroid locale
+                vm.onPhotoCaptured(uri.toString())
 
-            if (!fromHistory) {
-                //historyVm.updatePhoto(snapshot.startTimeMs, newUri)
+                // SALVA SU FIREBASE
+                // Usiamo l'idAllenamento che deve essere presente nello snapshot
+                snapshot.idAllenamento?.let { id ->
+                    Log.d("PHOTO_SAVE", "Carico foto per ID: $id")
+                    activityViewModel.uploadWorkoutPhoto(id, uri)
+                    vm.onPhotoCaptured(uri.toString())
+                }
             }
         } else {
             pendingCameraUri = null

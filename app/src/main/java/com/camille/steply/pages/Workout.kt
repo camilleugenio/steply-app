@@ -210,10 +210,22 @@ fun WorkoutScreen(
                                 val st = mapState
                                 val finalKcal = kcal
 
+                                val idPerSalvataggio = activityViewModel.uiState.value.currentWorkoutId
+                                    ?: serverId
+                                    ?: "TEMP_${System.currentTimeMillis()}"
+
+                                Log.d("SYNC_DEBUG", "ID utilizzato per salvataggio e snapshot: $idPerSalvataggio")
+
                                 // 2. Map Points
                                 val googleGeoPoints = st.segments.flatMap { it.points }.map {
                                     com.google.firebase.firestore.GeoPoint(it.latitude, it.longitude)
                                 }
+
+                                val currentId = activityViewModel.uiState.value.currentWorkoutId
+                                    ?: serverId // Prova anche il serverId del workoutVm se il primo è null
+                                    ?: "TEMP_${System.currentTimeMillis()}" // Fallback finale se proprio non c'è nulla
+
+                                Log.d("DEBUG_SAVE", "ID recuperato per lo snapshot: $currentId")
 
                                 // 3. Save to Firestore
                                 activityViewModel.finishAndSaveWorkout(
@@ -228,6 +240,7 @@ fun WorkoutScreen(
 
                                 // 4. Prepare Snapshot
                                 val snapshot = WorkoutReportSnapshot(
+                                    idAllenamento = idPerSalvataggio,
                                     type = type.name,
                                     startTimeMs = System.currentTimeMillis() - (elapsedSec * 1000L),
                                     durationSec = elapsedSec,

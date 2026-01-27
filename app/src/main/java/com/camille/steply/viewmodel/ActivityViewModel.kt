@@ -1,6 +1,7 @@
 package com.camille.steply.viewmodel
 
 import android.app.Application
+import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -8,9 +9,12 @@ import com.camille.steply.data.WorkoutData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.GeoPoint
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 
 // Stato della UI per l'attività in corso
@@ -89,6 +93,7 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         val uid = auth.currentUser?.uid ?: return
         val idAllenamento = _uiState.value.currentWorkoutId ?: return
         val todayIso = LocalDate.now().toString()
+        val documentKey = "${idAllenamento}_$todayIso"
 
         val finalWorkout = WorkoutData(
             idAllenamento = idAllenamento,
@@ -104,7 +109,7 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
             timestamp = System.currentTimeMillis()
         )
 
-        saveWorkoutToFirestore(finalWorkout)
+        saveWorkoutToFirestore(finalWorkout, documentKey)
 
         // Reset dello stato locale
         _uiState.update { it.copy(isRecording = false, currentWorkoutId = null) }
@@ -113,9 +118,9 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
     /**
      * Scrive effettivamente il documento su Firestore
      */
-    private fun saveWorkoutToFirestore(workout: WorkoutData) {
+    private fun saveWorkoutToFirestore(workout: WorkoutData, documentKey: String) {
         val uid = auth.currentUser?.uid ?: return
-        val documentKey = "${workout.idAllenamento}_${workout.dataIso}"
+        //val documentKey = "${workout.idAllenamento}_${workout.dataIso}"
 
         db.collection("users").document(uid)
             .collection("workouts").document(documentKey)
@@ -143,6 +148,37 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
                         currentCalories = pesoUtente * kmAttuali * 0.9
                     )
                 }
+            }
+        }
+    }
+
+    fun uploadWorkoutPhoto(workoutId: String, photoUri: Uri) {
+        val uid = auth.currentUser?.uid ?: return
+        val todayIso = LocalDate.now().toString()
+        val documentKey = "${workoutId}_$todayIso"
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // 1. Carica su Storage
+                // Percorso: users / {uid} / workout_photos / {workoutId}.jpg
+                val storageRef = FirebaseStorage.getInstance().reference
+                    .child("users")
+                    .child(uid)
+                    .child("workout_photos") // Cartella specifica per le foto
+                    .child("$workoutId.jpg")
+
+                storageRef.putFile(photoUri).await()
+                val downloadUrl = storageRef.downloadUrl.await().toString()
+
+                // 2. Aggiorna il documento Firestore esistente
+                db.collection("users").document(uid)
+                    .collection("workouts").document(documentKey)
+                    .set(mapOf("photoUrl" to downloadUrl), com.google.firebase.firestore.SetOptions.merge())
+                    .await()
+
+                Log.d("WORKOUT_VM", "Foto salvata con successo: $downloadUrl")
+            } catch (e: Exception) {
+                Log.e("WORKOUT_VM", "Errore upload foto: ${e.message}")
             }
         }
     }

@@ -31,7 +31,7 @@ data class WorkoutData(
     val percorso: List<GeoPoint> = emptyList(),
 
     // Riferimento alla foto salvata localmente (es: "workout_photo_123.jpg")
-    val fotoLocalePath: String? = null,
+    val photoUrl: String? = null,
 
     val meteoEmoji: String = "",
     val meteoTempC: String = "--",
