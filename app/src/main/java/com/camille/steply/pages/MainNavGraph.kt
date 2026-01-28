@@ -34,7 +34,9 @@ fun MainNavGraph() {
     val homeViewModel: HomeViewModel = viewModel(
         factory = HomeVmFactory(context.applicationContext as Application)
     )
-    val profileViewModel = ProfileViewModel()
+
+    //val profileViewModel = ProfileViewModel()
+    val profileViewModel: ProfileViewModel = viewModel()
 
     val isEmulator = remember {
         val fp = android.os.Build.FINGERPRINT.lowercase()

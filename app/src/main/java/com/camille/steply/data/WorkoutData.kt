@@ -2,35 +2,32 @@ package com.camille.steply.data
 
 import com.google.firebase.firestore.GeoPoint
 
-/**
- * Rappresenta un singolo allenamento dell'utente.
- * La chiave del documento su Firestore sarà: "${idAllenamento}_${dataIso}"
- */
+// User Workout
 data class WorkoutData(
-    // ID generato dal server PythonAnywhere
+    // PythonAnywhere ID
     val idAllenamento: String = "",
 
-    // ID dell'utente (per sicurezza nella tupla)
+    // User ID
     val idUtente: String = "",
 
-    // Data in formato ISO (es: 2024-02-14)
+    // Date
     val dataIso: String = "",
 
-    // Timestamp per ordinare i workout dal più recente al più vecchio
+    // Workout order
     val timestamp: Long = System.currentTimeMillis(),
 
-    // Tipologia (Corsa, Camminata, etc.)
+    // Workout Type
     val tipo: String = "Camminata",
 
-    // Dati calcolati
+    // Data
     val durataSec: Long = 0,
     val km: Double = 0.0,
     val calorie: Double = 0.0,
 
-    // Percorso GPS (Mappa) - Firestore supporta direttamente la lista di GeoPoint
+    // Path
     val percorso: List<GeoPoint> = emptyList(),
 
-    // Riferimento alla foto salvata localmente (es: "workout_photo_123.jpg")
+    // Photo
     val photoUrl: String? = null,
 
     val meteoEmoji: String = "",

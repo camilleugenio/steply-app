@@ -55,7 +55,6 @@ fun Registration(navController: NavHostController) {
     )
 
     Box(modifier = Modifier.fillMaxSize().background(backgroundGradient)) {
-        // --- BARRA FISSA ANIMATA ---
         val progress by remember(currentStep) {
             derivedStateOf { currentStep / 3f }
         }
@@ -65,13 +64,12 @@ fun Registration(navController: NavHostController) {
             enter = fadeIn(animationSpec = tween(1000)) + expandVertically(),
             exit = fadeOut(animationSpec = tween(1000)) + shrinkVertically()
         ) {
-            Column( // Usiamo Column come suggerito prima per gestire meglio lo spazio
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .padding(top = 80.dp) // Abbassata per il Pixel 9 Pro
+                    .padding(top = 80.dp)
             ) {
-                // 2. Passa il valore già calcolato
                 SteplyProgressBar(progress)
             }
         }
@@ -134,7 +132,6 @@ fun Registration(navController: NavHostController) {
     }
 }
 
-// --- COMPONENTI CONDIVISI ---
 
 @Composable
 fun CustomLabel(text: String) {
@@ -182,7 +179,7 @@ fun StepIntro(navController: NavHostController, onNext: () -> Unit) {
             Spacer(modifier = Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Already have an account? ", color = Color.Gray)
-                TextButton(onClick = { navController.navigate("login") }, // Assicurati che Routes.LOGIN sia mappato correttamente
+                TextButton(onClick = { navController.navigate("login") },
                     contentPadding = PaddingValues(0.dp)) {
                     Text("Login", fontWeight = FontWeight.Bold, color = Color(0xFFFF8C32))
                 }

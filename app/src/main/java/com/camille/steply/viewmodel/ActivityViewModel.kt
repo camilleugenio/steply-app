@@ -17,7 +17,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 
-// Stato della UI per l'attività in corso
 data class ActivityUiState(
     val isCountingDown: Boolean = false,
     val secondsLeft: Int = 0,
@@ -44,9 +43,6 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
     private val _events = Channel<ActivityEvent>()
     val events = _events.receiveAsFlow()
 
-    /**
-     * Fa partire il countdown prima dell'inizio dell'allenamento
-     */
     fun startCountdown(type: WorkoutType) {
         viewModelScope.launch {
             _uiState.update { it.copy(
@@ -67,9 +63,6 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /**
-     * Inizializza un nuovo allenamento (qui potrai chiamare PythonAnywhere in futuro)
-     */
     fun startNewWorkout(type: WorkoutType) {
         val idTemporaneo = "PY_${System.currentTimeMillis()}"
         _uiState.update { it.copy(
@@ -78,9 +71,6 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         )}
     }
 
-    /**
-     * Funzione chiamata alla fine dell'allenamento per impacchettare i dati
-     */
     fun finishAndSaveWorkout(
         tipo: String,
         durataSec: Long,
@@ -111,16 +101,11 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
 
         saveWorkoutToFirestore(finalWorkout, documentKey)
 
-        // Reset dello stato locale
         _uiState.update { it.copy(isRecording = false, currentWorkoutId = null) }
     }
 
-    /**
-     * Scrive effettivamente il documento su Firestore
-     */
     private fun saveWorkoutToFirestore(workout: WorkoutData, documentKey: String) {
         val uid = auth.currentUser?.uid ?: return
-        //val documentKey = "${workout.idAllenamento}_${workout.dataIso}"
 
         db.collection("users").document(uid)
             .collection("workouts").document(documentKey)
@@ -137,14 +122,13 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.update { it.copy(currentWorkoutId = id) }
     }
 
-    // Questa funzione va chiamata quando si apre la schermata del workout
     fun monitorLiveService(kmDallaService: Flow<Double>, pesoUtente: Double) {
         viewModelScope.launch {
             kmDallaService.collect { kmAttuali ->
                 _uiState.update { state ->
                     state.copy(
                         currentKm = kmAttuali,
-                        // Formula: Peso * Km * 0.9 (costante corsa/camminata)
+                        // Formula: Peso * Km * 0.9
                         currentCalories = pesoUtente * kmAttuali * 0.9
                     )
                 }
@@ -160,11 +144,10 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 // 1. Carica su Storage
-                // Percorso: users / {uid} / workout_photos / {workoutId}.jpg
                 val storageRef = FirebaseStorage.getInstance().reference
                     .child("users")
                     .child(uid)
-                    .child("workout_photos") // Cartella specifica per le foto
+                    .child("workout_photos")
                     .child("$workoutId.jpg")
 
                 storageRef.putFile(photoUri).await()
@@ -186,12 +169,8 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteWorkout(snap: WorkoutReportSnapshot) {
         val uid = auth.currentUser?.uid ?: return
 
-        // Lo snapshot ha già l'ID dell'allenamento e la data (formattata o ricavabile)
         val idAllenamento = snap.idAllenamento ?: ""
 
-        // Per ricostruire il documentKey usato in precedenza: ${idAllenamento}_${dataIso}
-        // Dobbiamo assicurarci di avere la dataIso. Se non è nello snapshot,
-        // possiamo ricavarla da startTimeMs
         val dateIso = java.time.Instant.ofEpochMilli(snap.startTimeMs)
             .atZone(java.time.ZoneId.systemDefault())
             .toLocalDate()

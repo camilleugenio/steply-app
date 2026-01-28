@@ -65,34 +65,6 @@ import kotlin.math.roundToInt
 
 
 
-// -------------------- SNAPSHOT (Parcelable) --------------------
-//
-//@Parcelize
-//@Serializable
-//data class LatLngP(val lat: Double, val lon: Double) : Parcelable
-//
-//@Parcelize
-//@Serializable
-//data class TrackSegmentP(
-//    val dashed: Boolean,
-//    val points: List<LatLngP>
-//) : Parcelable
-//
-//@Parcelize
-//@Serializable
-//data class WorkoutReportSnapshot(
-//    val type: String,
-//    val startTimeMs: Long,
-//    val durationSec: Int,
-//    val distanceMeters: Double,
-//    val kcal: Int,
-//    val meteoEmoji: String,
-//    val meteoTempC: String,
-//    val startPoint: LatLngP?,
-//    val segments: List<TrackSegmentP>,
-//    val photoUri: String? = null
-//) : Parcelable
-
 // -------------------- SCREEN --------------------
 
 
@@ -126,7 +98,6 @@ fun WorkoutReportScreen(
         return
     }
 
-    // init VM once per snapshot
     LaunchedEffect(snapshot.startTimeMs) {
         vm.init(snapshot, fromHistory)
     }
@@ -146,11 +117,8 @@ fun WorkoutReportScreen(
         if (success) {
             val uri = pendingCameraUri
             if (uri != null) {
-                // Mostra la foto nella Polaroid locale
                 vm.onPhotoCaptured(uri.toString())
 
-                // SALVA SU FIREBASE
-                // Usiamo l'idAllenamento che deve essere presente nello snapshot
                 snapshot.idAllenamento?.let { id ->
                     Log.d("PHOTO_SAVE", "Carico foto per ID: $id")
                     activityViewModel.uploadWorkoutPhoto(id, uri)
@@ -172,7 +140,6 @@ fun WorkoutReportScreen(
         }
     }
 
-    // handle one-shot effects from VM
     LaunchedEffect(effect) {
         when (effect) {
             WorkoutReportEffect.NavigateBackToActivity -> {

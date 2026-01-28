@@ -35,7 +35,6 @@ private val GridColor = Color.LightGray.copy(alpha = 0.3f)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WeightHistory(navController: NavHostController) {
-    // Usiamo entrambi i ViewModel per separare le responsabilità
     val profileViewModel: ProfileViewModel = viewModel()
     val weightViewModel: WeightViewModel = viewModel()
 
@@ -48,7 +47,6 @@ fun WeightHistory(navController: NavHostController) {
     var showSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
-    // Filtro per il grafico basato sullo stato del WeightViewModel
     val filteredHistory = remember(weightUiState.weightHistory, selectedTab) {
         val base = weightUiState.weightHistory.sortedBy { it.timestamp }
         when (selectedTab) {

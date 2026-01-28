@@ -23,15 +23,9 @@ class WorkoutHistoryViewModel(app: Application) : AndroidViewModel(app) {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
-    /**
-     * Ascolta in tempo reale i workout dell'utente corrente su Firestore.
-     * Grazie all'UID, ogni utente vedrà solo i propri dati.
-     */
     fun monitorUserHistory() {
         val uid = auth.currentUser?.uid ?: return
 
-        // Evitiamo di far partire il caricamento se la lista è già popolata
-        // (opzionale, ma rende la UI più fluida)
         if (_items.value.isEmpty()) {
             _isLoading.value = true
         }

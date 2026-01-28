@@ -94,9 +94,6 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 
     val uiState by homeViewModel.uiState.collectAsState()
 
-    // bell = goal notification
-    //val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
-
     // Responsive
     val cfg = LocalConfiguration.current
     val isSmall = cfg.screenWidthDp < 420
@@ -204,8 +201,6 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                     uiState.meteoError != null -> "Weather unavailable"
                     else -> ", ${uiState.meteoTempC}°C ${uiState.meteoDesc}  "
                 },
-                //goalNotifEnabled = goalNotifEnabled,
-                //onToggleGoalNotif = { enabled -> homeViewModel.setGoalNotificationEnabled(enabled) },
                 onSettings = { },
                 onCalendar = { showCalendar = true }
             )
@@ -220,7 +215,6 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                 km = uiState.selectedKm,
                 kcal = uiState.selectedKcal,
                 isSmall = isSmall
-                //onRefresh = { homeViewModel.simulateStepsDebug() }
             )
 
             Spacer(Modifier.height(12.dp))
@@ -258,8 +252,6 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
 private fun TopBarLight(
     placeText: String,
     weatherText: String,
-    //goalNotifEnabled: Boolean,
-    //onToggleGoalNotif: (Boolean) -> Unit,
     onCalendar: () -> Unit,
     onSettings: () -> Unit
 ) {
@@ -302,17 +294,6 @@ private fun TopBarLight(
                         tint = TextPrimary
                     )
                 }
-
-//                IconToggleButton(
-//                    checked = goalNotifEnabled,
-//                    onCheckedChange = onToggleGoalNotif
-//                ) {
-//                    Icon(
-//                        imageVector = Icons.Default.Notifications,
-//                        contentDescription = "Goal notifications",
-//                        tint = if (goalNotifEnabled) Accent else Color.Gray
-//                    )
-//                }
             }
         }
     }

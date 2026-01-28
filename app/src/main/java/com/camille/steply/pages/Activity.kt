@@ -65,7 +65,6 @@ fun ActivityScreen(
     var navigating by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // SORGENTE DATI: Usiamo il ViewModel della storia
     val historyVm: WorkoutHistoryViewModel = viewModel()
     val historyItems by historyVm.items.collectAsState()
     val isLoading by historyVm.isLoading.collectAsState()
@@ -77,7 +76,6 @@ fun ActivityScreen(
     val sidePad = if (isSmall) 12.dp else 16.dp
     val bottomPad = if (isSmall) 12.dp else 18.dp
 
-    // TRIGGER: Carica la storia specifica dell'utente corrente
     LaunchedEffect(Unit) {
         historyVm.monitorUserHistory()
     }

@@ -14,9 +14,6 @@ import kotlin.math.roundToInt
 import com.google.firebase.firestore.ListenerRegistration
 
 
-/**
- * UI State for the Profile
- */
 data class ProfileUiState(
     val username: String = "",
     val name: String = "",
@@ -27,7 +24,6 @@ data class ProfileUiState(
     val isSaving: Boolean = false,
     val message: String? = null,
 
-    // per la overview card
     val totalSteps: Long = 0,
     val bestDaySteps: Int = 0,
     val totalKm: String = "0.0",
@@ -42,7 +38,6 @@ class ProfileViewModel : ViewModel() {
         val uid = fbAuth.currentUser?.uid
         detachListeners()
 
-        // reset UI (prevents flashing old user)
         _uiState.value = ProfileUiState()
 
         if (uid != null) {
@@ -75,7 +70,6 @@ class ProfileViewModel : ViewModel() {
     init {
         auth.addAuthStateListener(authListener)
 
-        // optional: if already logged in, start immediately (but don't duplicate)
         if (auth.currentUser != null) {
             loadUserData()
             observeGlobalStats()
@@ -110,13 +104,10 @@ class ProfileViewModel : ViewModel() {
         }
     }
 
-    // --- AGGIORNATO: ASCOLTO STATISTICHE IN TEMPO REALE ---
 
     private fun observeGlobalStats() {
         val uid = auth.currentUser?.uid ?: return
 
-        // Usiamo addSnapshotListener invece di get() così la OverviewCard
-        // si aggiorna istantaneamente mentre l'utente cammina
         historyListener?.remove()
         historyListener=db.collection("users").document(uid).collection("history")
             .addSnapshotListener { querySnapshot, error ->
@@ -131,7 +122,6 @@ class ProfileViewModel : ViewModel() {
                     if (steps > best) best = steps
                 }
 
-                // Calcolo KM con arrotondamento sicuro senza String.format problematici
                 val rawKm = (total * 0.74) / 1000.0
                 val roundedKm = (rawKm * 10).roundToInt() / 10.0
 

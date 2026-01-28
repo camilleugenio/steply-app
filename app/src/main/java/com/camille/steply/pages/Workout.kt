@@ -222,8 +222,8 @@ fun WorkoutScreen(
                                 }
 
                                 val currentId = activityViewModel.uiState.value.currentWorkoutId
-                                    ?: serverId // Prova anche il serverId del workoutVm se il primo è null
-                                    ?: "TEMP_${System.currentTimeMillis()}" // Fallback finale se proprio non c'è nulla
+                                    ?: serverId
+                                    ?: "TEMP_${System.currentTimeMillis()}"
 
                                 Log.d("DEBUG_SAVE", "ID recuperato per lo snapshot: $currentId")
 

@@ -53,8 +53,6 @@ fun EditProfile(navController: NavHostController) {
     var tempSurname by remember { mutableStateOf(uiState.surname) }
     var tempWeight by remember { mutableStateOf(uiState.weight) }
     var tempGoal by remember { mutableStateOf(uiState.goal) }
-
-    // Nuovo stato locale per la foto scelta ma NON ancora salvata su Firebase
     var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
     var showExitDialog by remember { mutableStateOf(false) }
@@ -62,14 +60,12 @@ fun EditProfile(navController: NavHostController) {
     var newPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
-    // Launcher aggiornato: salva solo l'URI locale senza fare l'upload immediato
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         uri?.let { tempPhotoUri = it }
     }
 
-    // Verifica modifiche includendo la nuova foto temporanea
     val hasUnsavedChanges = remember(tempName, tempSurname, tempWeight, tempGoal, tempPhotoUri, uiState) {
         tempName != uiState.name ||
                 tempSurname != uiState.surname ||
@@ -128,12 +124,10 @@ fun EditProfile(navController: NavHostController) {
                     border = BorderStroke(2.dp, Color.LightGray),
                     shadowElevation = 4.dp
                 ) {
-                    // Se c'è una foto temporanea o una già salvata, allora hasPhoto è true
                     val hasPhoto = tempPhotoUri != null || uiState.profilePhotoUri != null
 
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
-                            // Priorità alla foto temporanea appena scelta
                             .data(tempPhotoUri ?: uiState.profilePhotoUri ?: R.drawable.ic_profile_placeholder)
                             .crossfade(true)
                             .build(),
@@ -196,9 +190,7 @@ fun EditProfile(navController: NavHostController) {
             Button(
                 onClick = {
                     val onComplete = {
-                        // Quando tutto è finito, salviamo i dati nel profilo
                         viewModel.updateFullProfile(tempName, tempSurname, tempWeight, tempGoal) {
-                            // E contemporaneamente aggiungiamo la voce alla cronologia
                             weightViewModel.addWeightEntry(tempWeight) {
                                 Toast.makeText(context, "Profile Updated!", Toast.LENGTH_SHORT).show()
                                 navController.popBackStack()

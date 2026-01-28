@@ -11,18 +11,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * Data model for weight history entries
- */
 data class WeightEntry(
     val date: String = "",
     val weight: Double = 0.0,
     val timestamp: com.google.firebase.Timestamp? = null
 )
 
-/**
- * UI State specifico per la cronologia del peso
- */
 data class WeightUiState(
     val weightHistory: List<WeightEntry> = emptyList(),
     val isSaving: Boolean = false
@@ -60,13 +54,12 @@ class WeightViewModel : ViewModel() {
             }
     }
 
-    // Usiamo questa funzione (addWeightEntry) che include anche il feedback del caricamento
     fun addWeightEntry(newWeight: String, onSuccess: () -> Unit) {
         val userId = auth.currentUser?.uid ?: return
         val formattedWeight = newWeight.replace(",", ".")
         val weightDouble = formattedWeight.toDoubleOrNull() ?: return
 
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val sdf = SimpleDateFormat("dd-MM-yyyy", Locale.getDefault())
         val todayDate = sdf.format(Date())
 
         _uiState.update { it.copy(isSaving = true) }
@@ -77,7 +70,6 @@ class WeightViewModel : ViewModel() {
             "timestamp" to com.google.firebase.Timestamp.now()
         )
 
-        // Aggiorna sia il documento utente (peso attuale) che la cronologia
         db.runBatch { batch ->
             val userRef = db.collection("users").document(userId)
             val historyRef = db.collection("users").document(userId)

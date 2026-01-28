@@ -259,7 +259,6 @@ class StepForegroundService : Service(), SensorEventListener {
                 store.setStepsForDayStartEpoch(u, midnight, next)
                 maybeNotifyGoal(next)
 
-//                startForeground(NOTIF_ID, buildNotification(next))
                 val goal = store.getDailyGoal(default = 50)
                 startForeground(NOTIF_ID, buildNotification(next, goal))
             }
@@ -271,7 +270,6 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- GOAL NOTIFICATION --------------------
 
     private suspend fun maybeNotifyGoal(todaySteps: Int) {
-        // ✅ Bell OFF => do not send goal notification
         if (!store.isGoalNotificationEnabled()) return
 
         val goal = store.getDailyGoal(default = 50)
@@ -319,7 +317,7 @@ class StepForegroundService : Service(), SensorEventListener {
     private fun buildGoalReachedNotification(steps: Int, goal: Int): Notification {
         val openAppIntent = PendingIntent.getActivity(
             this,
-            1, // different request code from foreground notification
+            1,
             Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },

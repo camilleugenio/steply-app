@@ -51,14 +51,11 @@ fun Profile(
     homeViewModel: HomeViewModel,
     profileViewModel: ProfileViewModel,
 ) {
-    //val viewModel: ProfileViewModel = viewModel()
 
     val uiState by profileViewModel.uiState.collectAsState()
     val homeState by homeViewModel.uiState.collectAsState()
 
-    val kmStepsOnly = uiState.totalKm // Questo valore viene dal calcolo dei passi salvati
-
-    // ---------------------------------
+    val kmStepsOnly = uiState.totalKm
 
     val goalNotifEnabled by homeViewModel.goalNotificationEnabled.collectAsState(initial = true)
     val goalSteps = uiState.goal.filter { it.isDigit() }.toIntOrNull() ?: 10000
@@ -310,7 +307,7 @@ fun OverviewCard(
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
                 text = "Your Journey",
-                modifier = Modifier.clickable { homeViewModel.simulateStepsDebug() }, // <--- AGGIUNGI QUESTO
+                modifier = Modifier.clickable { homeViewModel.simulateStepsDebug() },
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = Color(0xFF111111)

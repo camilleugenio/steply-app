@@ -60,7 +60,7 @@ fun Login(navController: NavHostController) {
                 )
             }
 
-            // 2. CAMPI DI INPUT (TextField scritti per esteso)
+            // 2. CAMPI DI INPUT
             Column(modifier = Modifier.weight(2.5f)) {
                 CustomLabel("Email Address")
                 TextField(

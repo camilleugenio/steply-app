@@ -96,14 +96,12 @@ class HomeViewModel(
     private var isFirestoreLoaded = false
 
     private val authListener = FirebaseAuth.AuthStateListener { firebaseAuth ->
-        // Stop old listeners and collectors (old account)
         goalListener?.remove()
         historyListener?.remove()
         stepsCollectorJob?.cancel()
         stepsCollectorJob = null
         isFirestoreLoaded = false
 
-        // Reset UI immediately to avoid showing previous user's data
         _uiState.update { state ->
             val today = LocalDate.now()
             state.copy(
@@ -133,7 +131,7 @@ class HomeViewModel(
         syncHistoryFromFirestore()
         observeTodayHistoryFromFirestore { isFirestoreLoaded = true }
         monitorWorkouts()
-        // Refresh derived UI from local store (will be filled by Firestore sync)
+        // Refresh derived UI from local store
         refreshWeeklySteps(LocalDate.now().toString())
         refreshCalendarSteps()
         // Restart local steps collector for the new account
@@ -188,7 +186,6 @@ class HomeViewModel(
                 val firestoreSteps = snapshot.getLong("steps")?.toInt() ?: 0
                 updateUI(firestoreSteps, todayIso)
             } else {
-                // ✅ If no remote doc yet, show what we already have locally
                 val local = _uiState.value.steps
                 if (local > 0) updateUI(local, todayIso)
             }
@@ -200,7 +197,6 @@ class HomeViewModel(
     private fun updateUI(steps: Int, dateIso: String) {
         val todayIso = LocalDate.now().toString()
 
-        // FILTRO ANTI-RESET: Se arrivano meno passi di quelli che abbiamo già per oggi, ignoriamo l'update.
         if (dateIso == todayIso && steps < _uiState.value.steps && _uiState.value.steps > 0) {
             return
         }
@@ -216,8 +212,8 @@ class HomeViewModel(
             val newMap = state.stepsByDateIso.toMutableMap()
             newMap[dateIso] = steps
 
-            // 2) ricalcola i 7 giorni della dashboard (coerenti col tuo WeeklyStepsLight)
-            val baseDay = LocalDate.parse(state.currentDateIso) // oppure LocalDate.now() se preferisci
+            // 2) ricalcola i 7 giorni della dashboard
+            val baseDay = LocalDate.parse(state.currentDateIso)
             val last7 = (6 downTo 0).map { baseDay.minusDays(it.toLong()).toString() }
             val newWeekly = last7.map { iso -> newMap[iso] ?: 0 }
 
@@ -230,7 +226,6 @@ class HomeViewModel(
                 selectedKm = if (viewingToday) kmText else state.selectedKm,
                 selectedKcal = if (viewingToday) kcalValue.toString() else state.selectedKcal,
 
-                // ✅ queste 2 righe sono la chiave
                 stepsByDateIso = newMap,
                 weeklySteps = newWeekly
             )
@@ -362,8 +357,6 @@ class HomeViewModel(
 
     fun selectToday() {
         val todayIso = LocalDate.now().toString()
-        // Invece di ricaricare dal DataStore (che può essere a 0),
-        // usiamo i passi che abbiamo già sincronizzato nello state
         val currentSteps = _uiState.value.steps
         val d = LocalDate.now()
 
@@ -397,7 +390,7 @@ class HomeViewModel(
                 // 2. Controlliamo i giorni passati a ritroso
                 for (i in 1..365) {
                     val dIso = today.minusDays(i.toLong()).toString()
-                    // Cerchiamo nella mappa dei passi che abbiamo già (caricata dal calendario/weekly)
+                    // Cerchiamo nella mappa dei passi
                     val steps = store.getStepsForDateIso(uid,dIso)
 
                     if (steps >= dailyGoal) {
@@ -407,8 +400,6 @@ class HomeViewModel(
                     }
                 }
             } else {
-                // Se oggi non abbiamo raggiunto il goal, lo streak potrebbe essere
-                // comunque attivo se ieri lo avevamo raggiunto (streak "pendente")
                 for (i in 1..365) {
                     val dIso = today.minusDays(i.toLong()).toString()
                     val steps = store.getStepsForDateIso(uid,dIso)
@@ -470,7 +461,7 @@ class HomeViewModel(
 
         viewModelScope.launch {
             try {
-                // 1. Scarichiamo i dati da Firestore e ASPETTIAMO (await) che finisca
+                // 1. Scarichiamo i dati da Firestore
                 val querySnapshot = db.collection("users").document(uid)
                     .collection("history")
                     .get()
@@ -483,7 +474,7 @@ class HomeViewModel(
                     store.saveSteps(uid,dateIso,steps)
                 }
 
-                // 3. SOLO ORA ricalcoliamo lo streak, perché ora i dati ci sono!
+                // 3. ricalcoliamo lo streak
                 val today = LocalDate.now().toString()
                 refreshStreak(today, _uiState.value.dailyGoal)
                 refreshWeeklySteps(today)
@@ -507,7 +498,6 @@ class HomeViewModel(
                     return@addSnapshotListener
                 }
 
-                // Trasforma i documenti in oggetti WorkoutData
                 val list = snapshot?.documents?.mapNotNull { it.toObject(WorkoutData::class.java) } ?: emptyList()
 
                 val sumKm = list.sumOf { it.km }

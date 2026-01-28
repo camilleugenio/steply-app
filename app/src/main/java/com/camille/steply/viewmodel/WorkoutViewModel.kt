@@ -4,7 +4,6 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.camille.steply.data.location.LatLng
-import com.camille.steply.data.location.LocationRepository
 import com.camille.steply.network.KcalApi
 import com.camille.steply.network.StartWorkoutRequest
 import com.camille.steply.network.UpdateWorkoutRequest
@@ -137,7 +136,6 @@ class WorkoutViewModel(
         }
     }
 
-    // ------------------------------
 
     fun start() {
         _state.value = WorkoutMapState(
