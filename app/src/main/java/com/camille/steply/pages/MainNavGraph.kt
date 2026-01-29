@@ -36,8 +36,8 @@ fun MainNavGraph() {
             ?: throw IllegalStateException("Application not available from context: ${context::class.java.name}")
     }
 
-    // Start at LOGIN if not authenticated, else enter the MAIN_GRAPH
-    val startRoute = if (auth.currentUser == null) Routes.LOGIN else MAIN_GRAPH
+    // Start at Welcome if not authenticated, else enter the MAIN_GRAPH
+    val startRoute = if (auth.currentUser == null) Routes.REGISTRATION else MAIN_GRAPH
 
     NavHost(
         navController = navController,
@@ -113,7 +113,6 @@ fun MainNavGraph() {
                 WeightHistory(navController = navController)
             }
 
-            // ✅ Workout route with explicit argument definition + default
             composable(
                 route = "${Routes.WORKOUT}/{$ARG_WORKOUT_TYPE}",
                 arguments = listOf(

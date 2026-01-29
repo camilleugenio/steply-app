@@ -301,7 +301,7 @@ class StepForegroundService : Service(), SensorEventListener {
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification_steply)
-            .setColor(0xFFFF9F1C.toInt())
+            .setColor(0xFFF3A130.toInt())
             .setColorized(true)
             .setContentText("Steps: $steps / $goal")
             .setCategory(NotificationCompat.CATEGORY_SERVICE)

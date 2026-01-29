@@ -151,7 +151,8 @@ fun ActivityScreen(
                                 navController.navigate(Routes.PROFILE) { launchSingleTop = true }
                             }
                         }
-                    }
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
