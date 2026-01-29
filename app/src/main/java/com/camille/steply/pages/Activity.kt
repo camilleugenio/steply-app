@@ -478,7 +478,7 @@ private fun WorkoutHistoryRow(snap: WorkoutReportSnapshot, onClick: () -> Unit) 
                 Spacer(Modifier.height(6.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text(kmText, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-                    Text(dayText, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6B6B6B), modifier = Modifier.padding(top = 6.dp))
+                    Text(dayText, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = Color(0xFF6B6B6B), modifier = Modifier.padding(top = 6.dp))
                 }
             }
             Spacer(Modifier.width(10.dp))

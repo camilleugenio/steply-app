@@ -67,6 +67,8 @@ import java.time.LocalDate
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 
 // -------------------- PALETTE --------------------
 private val Bg = Color(0xFFF4F1EC)
@@ -183,13 +185,15 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
             }
         }
     ) { padding ->
+
+        val scrollState = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(horizontal = sidePad, vertical = 12.dp)
+                .verticalScroll(scrollState)
         ) {
-
             TopBarLight(
                 placeText = when {
                     uiState.locationLoading -> ""
