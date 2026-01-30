@@ -132,16 +132,16 @@ class StepForegroundService : Service(), SensorEventListener {
             val u = uid ?: return@launch
             dayStart = store.getDayStartEpoch(u)
             baseSteps = store.getBaseStepsFromBoot(u)
-
+            if (stepSensor.hasSensor()) {
+                startRealStepCounter()
+            } else {
+                // Emulator / no step counter -> accelerometer shake fallback
+                startAccelerometerFallback()
+            }
         }
 
         // If step counter sensor exists -> use it (real phone behavior)
-        if (stepSensor.hasSensor()) {
-            startRealStepCounter()
-        } else {
-            // Emulator / no step counter -> accelerometer shake fallback
-            startAccelerometerFallback()
-        }
+
     }
 
     private fun stopTracking() {
@@ -175,8 +175,9 @@ class StepForegroundService : Service(), SensorEventListener {
                 val midnight = todayMidnightEpochMillis()
                 val u = uid ?: return@launch
                 if (dayStart == 0L) {
+                    val storedSteps = store.getStepsForDayStartEpoch(u, midnight)
                     dayStart = midnight
-                    baseSteps = currentFromBoot
+                    baseSteps = (currentFromBoot - storedSteps.toLong()).coerceAtLeast(0L)
                     store.setBaseline(u, dayStart, baseSteps)
                 }
 
