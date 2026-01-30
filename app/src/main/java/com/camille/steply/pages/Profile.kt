@@ -101,8 +101,7 @@ fun Profile(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = sidePad)
-                .verticalScroll(scrollState),
+                .padding(horizontal = sidePad),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // TOP BAR SETTINGS
@@ -129,7 +128,7 @@ fun Profile(
                         shape = RoundedCornerShape(18.dp),
                         containerColor = Color.White,
                         tonalElevation = 6.dp,
-                        shadowElevation = 12.dp
+                        shadowElevation = 10.dp
                     ) {
                         Column(modifier = Modifier.padding(vertical = 8.dp)) {
 
@@ -159,49 +158,56 @@ fun Profile(
                 }
             }
 
-
-            Spacer(modifier = Modifier.height(if (isSmall) 10.dp else 12.dp))
-
-            // HEADER SECTION
-            ProfileHeaderSection(
-                name = uiState.name,
-                username = uiState.username,
-                photoUri = uiState.profilePhotoUri,
-                streakCount = homeState.streakDays
-            )
-
-            Spacer(modifier = Modifier.height(if (isSmall) 14.dp else 16.dp))
-
-            // CONTENT SECTION
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+                    .padding(top=14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                OverviewCard(
-                    totalSteps = uiState.totalSteps,
-                    bestDay = uiState.bestDaySteps,
-                    totalKm = kmStepsOnly,
-                    totalWorkouts = homeState.totalWorkouts,
-                    homeViewModel = homeViewModel
+                // HEADER SECTION
+                ProfileHeaderSection(
+                    name = uiState.name,
+                    username = uiState.username,
+                    photoUri = uiState.profilePhotoUri,
+                    streakCount = homeState.streakDays
                 )
 
-                GoalProgressCard(currentSteps = homeState.steps, goalSteps = goalSteps)
+                Spacer(modifier = Modifier.height(if (isSmall) 10.dp else 12.dp))
 
-                ProfileRowItem(
-                    label = "Weight Tracker",
-                    value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
-                    icon = Icons.Default.Scale,
-                    onClick = { navController.navigate("weight_history") }
-                )
+                // CONTENT SECTION
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OverviewCard(
+                        totalSteps = uiState.totalSteps,
+                        bestDay = uiState.bestDaySteps,
+                        totalKm = kmStepsOnly,
+                        totalWorkouts = homeState.totalWorkouts,
+                        homeViewModel = homeViewModel
+                    )
 
-                ProfileToggleRowItem(
-                    label = "Daily Goal Notification",
-                    icon = Icons.Default.Notifications,
-                    checked = goalNotifEnabled,
-                    onCheckedChange = { homeViewModel.setGoalNotificationEnabled(it) }
-                )
+                    GoalProgressCard(currentSteps = homeState.steps, goalSteps = goalSteps)
+
+                    ProfileRowItem(
+                        label = "Weight Tracker",
+                        value = uiState.weight.ifEmpty { "--" }.let { if (it != "--") "$it kg" else it },
+                        icon = Icons.Default.Scale,
+                        onClick = { navController.navigate("weight_history") }
+                    )
+                    //Spacer(Modifier.height(30.dp))
+                    ProfileToggleRowItem(
+                        label = "Daily Goal Notification",
+                        icon = Icons.Default.Notifications,
+                        checked = goalNotifEnabled,
+                        onCheckedChange = { homeViewModel.setGoalNotificationEnabled(it) }
+                    )
+
+                    Spacer(Modifier.height(8.dp))
+                }
             }
-            Spacer(modifier = Modifier.height(30.dp))
         }
     }
 
@@ -243,7 +249,7 @@ fun ProfileHeaderSection(name: String, username: String, photoUri: android.net.U
             modifier = Modifier.weight(1f).aspectRatio(1.1f),
             shape = RoundedCornerShape(28.dp),
             color = CardColor,
-            shadowElevation = 18.dp
+            shadowElevation = 6.dp
         ) {
             Column(
                 modifier = Modifier.padding(12.dp),
@@ -306,7 +312,7 @@ fun OverviewCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = CardColor,
-        shadowElevation = 18.dp
+        shadowElevation = 6.dp
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Text(
@@ -373,7 +379,7 @@ fun GoalProgressCard(currentSteps: Int, goalSteps: Int) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = CardColor,
-        shadowElevation = 18.dp
+        shadowElevation = 6.dp
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -402,7 +408,7 @@ fun ProfileRowItem(label: String, value: String, icon: ImageVector, onClick: () 
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = CardColor,
-        shadowElevation = 18.dp
+        shadowElevation = 6.dp
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(36.dp).background(IconBgColor, CircleShape), contentAlignment = Alignment.Center) {
@@ -423,7 +429,7 @@ fun ProfileToggleRowItem(label: String, icon: ImageVector, checked: Boolean, onC
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = CardColor,
-        shadowElevation = 18.dp
+        shadowElevation = 6.dp
     ) {
         Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(36.dp).background(IconBgColor, CircleShape), contentAlignment = Alignment.Center) {

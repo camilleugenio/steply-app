@@ -191,8 +191,8 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = sidePad, vertical = 12.dp)
-                .verticalScroll(scrollState)
+                .background(Bg)
+                .padding(horizontal = sidePad, vertical = 10.dp)
         ) {
             TopBarLight(
                 placeText = when {
@@ -209,33 +209,42 @@ fun Home(navController: NavController, homeViewModel: HomeViewModel) {
                 onCalendar = { showCalendar = true }
             )
 
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(7.dp))
 
-            StepsMainCard(
-                dateLabel = uiState.currentDayname,
-                dateValue = uiState.currentDate,
-                steps = uiState.selectedSteps,
-                dailyGoal = dailyGoal,
-                km = uiState.selectedKm,
-                kcal = uiState.selectedKcal,
-                isSmall = isSmall
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(Bg)
+                    .verticalScroll(scrollState)
+                    .padding(top = 12.dp)
+            ) {
+                StepsMainCard(
+                    dateLabel = uiState.currentDayname,
+                    dateValue = uiState.currentDate,
+                    steps = uiState.selectedSteps,
+                    dailyGoal = dailyGoal,
+                    km = uiState.selectedKm,
+                    kcal = uiState.selectedKcal,
+                    isSmall = isSmall
+                )
 
-            Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
 
-            StreakCard(streakDays = uiState.streakDays)
+                StreakCard(streakDays = uiState.streakDays)
 
-            Spacer(Modifier.height(30.dp))
+                Spacer(Modifier.height(7.dp))
 
-            WeeklyStepsLight(
-                currentDateIso = uiState.currentDateIso,
-                selectedDateIso = uiState.selectedDateIso,
-                values = uiState.weeklySteps,
-                dailyGoal = dailyGoal,
-                onSelectDay = { iso -> homeViewModel.selectDay(iso) }
-            )
+                WeeklyStepsLight(
+                    currentDateIso = uiState.currentDateIso,
+                    selectedDateIso = uiState.selectedDateIso,
+                    values = uiState.weeklySteps,
+                    dailyGoal = dailyGoal,
+                    onSelectDay = { iso -> homeViewModel.selectDay(iso) }
+                )
 
-            Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(4.dp))
+            }
         }
     }
 
@@ -332,7 +341,7 @@ private fun StepsMainCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = Card,
-        shadowElevation = 18.dp
+        shadowElevation = 6.dp
     ) {
         Column(
             modifier = Modifier
@@ -456,7 +465,7 @@ fun StreakCard(streakDays: Int) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         color = Color.White,
-        shadowElevation = 12.dp
+        shadowElevation = 6.dp
     ) {
         Column(modifier = Modifier.padding(outerPad)) {
             Row(

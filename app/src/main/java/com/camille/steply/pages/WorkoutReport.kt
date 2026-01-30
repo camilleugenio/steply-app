@@ -193,7 +193,7 @@ fun WorkoutReportScreen(
     val cardCorner = if (isSmall) 26.dp else 30.dp
 
     val titleSize = if (isSmall) 18.sp else 20.sp
-    val dateSize = if (isSmall) 12.sp else 13.sp
+    val dateSize = if (isSmall) 9.sp else 11.sp
 
     val cardMaxH = minOf((screenHdp.dp * 0.45f), if (isSmall) 340.dp else 380.dp)
 
