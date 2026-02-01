@@ -147,7 +147,7 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
-
+    //
     fun uploadWorkoutPhoto(workoutId: String, photoUri: Uri) {
         val uid = auth.currentUser?.uid ?: return
         val todayIso = LocalDate.now().toString()
