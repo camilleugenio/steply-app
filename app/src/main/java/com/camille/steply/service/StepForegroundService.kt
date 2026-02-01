@@ -13,6 +13,7 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.camille.steply.MainActivity
 import com.camille.steply.R
@@ -62,6 +63,13 @@ class StepForegroundService : Service(), SensorEventListener {
 
     private var uid: String? = null
 
+    private var authRetryJob: kotlinx.coroutines.Job? = null
+
+
+    private var carryStepsToday: Int = 0
+    private var bootBaseFromBoot: Long = 0L
+
+
     private val serviceJob = SupervisorJob()
     private val scope = CoroutineScope(Dispatchers.Main + serviceJob)
 
@@ -98,8 +106,13 @@ class StepForegroundService : Service(), SensorEventListener {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         uid = FirebaseAuth.getInstance().currentUser?.uid
-
-        when (intent?.action) {
+        if (intent == null) {
+            scope.launch {
+                if (store.isTrackingEnabled()) startTracking() else stopSelf()
+            }
+            return START_STICKY
+        }
+        when (intent.action) {
             ACTION_START -> startTracking()
             ACTION_STOP -> stopTracking()
         }
@@ -111,40 +124,76 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- TRACKING --------------------
 
     private fun startTracking() {
+        Log.d("STEP_SVC", "startTracking uid=$uid listening=$listening")
         if (uid == null) {
-            stopSelf()
+            authRetryJob?.cancel()
+            authRetryJob = scope.launch {
+                while (uid == null) {
+                    kotlinx.coroutines.delay(1000)
+                    uid = FirebaseAuth.getInstance().currentUser?.uid
+                }
+                startTracking()
+            }
             return
         }
 
-        if (listening) return
+        if (listening) {
+            // Re-arm step source in case emulator dropped the listener
+            if (stepSensor.hasSensor()) {
+                startRealStepCounter()
+            } else {
+
+                startAccelerometerFallback()
+            }
+            return
+        }
         listening = true
 
         scope.launch { store.setTrackingEnabled(true) }
 
-
         scope.launch {
+            val u = uid ?: return@launch
+            val midnight = todayMidnightEpochMillis()
+            val steps = store.getStepsForDayStartEpoch(u, midnight)
             val goal = store.getDailyGoal(default = 50)
-            startForeground(NOTIF_ID, buildNotification(steps = 0, goal = goal))
+            startForeground(NOTIF_ID, buildNotification(steps = steps, goal = goal))
         }
-
 
         scope.launch {
             val u = uid ?: return@launch
+            val midnight = todayMidnightEpochMillis()
+
+            // Load what the UI also uses
             dayStart = store.getDayStartEpoch(u)
             baseSteps = store.getBaseStepsFromBoot(u)
+
+            // IMPORTANT: force the persisted "dayStart" to today's midnight bucket
+            // so UI + service always refer to the same day key (prevents "catch up" behavior)
+            if (dayStart != midnight) {
+                dayStart = midnight
+                store.clearGoalNotifiedIso()
+                // You already have setBaseline(...) from the real sensor path.
+                // In emulator mode baseSteps isn't meaningful, but we use it to persist dayStart.
+                store.setBaseline(u, dayStart, 0L)
+            }
+
             if (stepSensor.hasSensor()) {
                 startRealStepCounter()
             } else {
                 // Emulator / no step counter -> accelerometer shake fallback
+                val midnight = todayMidnightEpochMillis()
+                val steps = store.getStepsForDayStartEpoch(u, midnight)
+                store.setSimDayStart(u, midnight)
+                store.setSimStepsToday(u, steps)
                 startAccelerometerFallback()
             }
         }
 
-        // If step counter sensor exists -> use it (real phone behavior)
-
     }
 
     private fun stopTracking() {
+        authRetryJob?.cancel()
+        authRetryJob = null
         listening = false
 
         // stop both possible sources
@@ -158,6 +207,8 @@ class StepForegroundService : Service(), SensorEventListener {
     }
 
     override fun onDestroy() {
+        authRetryJob?.cancel()
+        authRetryJob = null
         stepSensor.stopListening()
         stopAccelerometerFallback()
         scope.cancel()
@@ -167,48 +218,47 @@ class StepForegroundService : Service(), SensorEventListener {
     // -------------------- REAL STEP COUNTER --------------------
 
     private fun startRealStepCounter() {
-        // Ensure fallback is off
         stopAccelerometerFallback()
 
         stepSensor.startListening { currentFromBoot ->
             scope.launch {
                 val midnight = todayMidnightEpochMillis()
                 val u = uid ?: return@launch
-                if (dayStart == 0L) {
-                    val storedSteps = store.getStepsForDayStartEpoch(u, midnight)
-                    dayStart = midnight
-                    baseSteps = (currentFromBoot - storedSteps.toLong()).coerceAtLeast(0L)
-                    store.setBaseline(u, dayStart, baseSteps)
-                }
 
-
-
-                // New day -> reset baseline + allow goal notification again
+                // New day: reset carry and set new boot base
                 if (dayStart != midnight) {
                     dayStart = midnight
-                    baseSteps = currentFromBoot
-                    store.setBaseline(u, dayStart, baseSteps)
+                    carryStepsToday = 0
+                    bootBaseFromBoot = currentFromBoot
                     store.clearGoalNotifiedIso()
                 }
 
-                // Reboot-safe
-                if (currentFromBoot < baseSteps) {
-                    baseSteps = currentFromBoot
-                    store.setBaseline(u, dayStart, baseSteps)
+                // First callback after service/process start
+                if (dayStart == 0L) {
+                    dayStart = midnight
+                    carryStepsToday = store.getStepsForDayStartEpoch(u, dayStart)
+                    bootBaseFromBoot = currentFromBoot
                 }
 
-                val todaySteps = (currentFromBoot - baseSteps).coerceAtLeast(0L).toInt()
+                // Delta since we (re)started listening
+                val delta = (currentFromBoot - bootBaseFromBoot).coerceAtLeast(0L).toInt()
+                val computed = carryStepsToday + delta
+
+                // Never go backwards vs persisted value
+                val persisted = store.getStepsForDayStartEpoch(u, dayStart)
+                val todaySteps = maxOf(persisted, computed)
 
                 // Persist + update notif + maybe goal
                 store.setStepsForDayStartEpoch(u, dayStart, todaySteps)
                 maybeNotifyGoal(todaySteps)
-
 
                 val goal = store.getDailyGoal(default = 50)
                 startForeground(NOTIF_ID, buildNotification(todaySteps, goal))
             }
         }
     }
+
+
 
     // -------------------- ACCELEROMETER FALLBACK (EMULATOR) --------------------
 
@@ -231,7 +281,10 @@ class StepForegroundService : Service(), SensorEventListener {
     }
 
     override fun onSensorChanged(event: SensorEvent) {
-        if (!listening) return
+        if (!listening){
+            Log.d("STEP_SVC", "onSensorChanged but NOT listening")
+            return
+        }
         if (event.sensor.type != Sensor.TYPE_ACCELEROMETER) return
 
         val x = event.values[0]
@@ -250,6 +303,11 @@ class StepForegroundService : Service(), SensorEventListener {
                 if (dayStart != midnight) {
                     dayStart = midnight
                     store.clearGoalNotifiedIso()
+
+                    val u = uid ?: return@launch
+                    // Persist the new dayStart/baseline so UI reads the same day bucket
+                    store.setBaseline(u, dayStart, /* baseSteps */ 0L)
+                    // (or store.setDayStartEpoch(u, dayStart) if you have that instead)
                 }
 
                 // increment today steps based on stored value
@@ -258,6 +316,8 @@ class StepForegroundService : Service(), SensorEventListener {
                 val current = store.getStepsForDayStartEpoch(u, midnight)
                 val next = current + 1
                 store.setStepsForDayStartEpoch(u, midnight, next)
+                store.setSimDayStart(u, midnight)
+                store.setSimStepsToday(u, next)
                 maybeNotifyGoal(next)
 
                 val goal = store.getDailyGoal(default = 50)

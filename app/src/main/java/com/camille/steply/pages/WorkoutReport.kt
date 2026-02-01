@@ -62,6 +62,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.roundToInt
+import androidx.activity.ComponentActivity
 
 
 
@@ -102,7 +103,8 @@ fun WorkoutReportScreen(
         vm.init(snapshot, fromHistory)
     }
 
-    val activityViewModel: ActivityViewModel = viewModel()
+    val activity = LocalContext.current as ComponentActivity
+    val activityViewModel: ActivityViewModel = viewModel(viewModelStoreOwner = activity)
     val uiState by vm.uiState.collectAsState()
     val effect by vm.effect.collectAsState()
 

@@ -16,6 +16,10 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+
 
 data class ActivityUiState(
     val isCountingDown: Boolean = false,
@@ -34,6 +38,9 @@ sealed class ActivityEvent {
 
 class ActivityViewModel(app: Application) : AndroidViewModel(app) {
 
+    private val uploadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
 
@@ -42,6 +49,11 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _events = Channel<ActivityEvent>()
     val events = _events.receiveAsFlow()
+
+    override fun onCleared() {
+        super.onCleared()
+        uploadScope.cancel()
+    }
 
     fun startCountdown(type: WorkoutType) {
         viewModelScope.launch {
@@ -141,7 +153,8 @@ class ActivityViewModel(app: Application) : AndroidViewModel(app) {
         val todayIso = LocalDate.now().toString()
         val documentKey = "${workoutId}_$todayIso"
 
-        viewModelScope.launch(Dispatchers.IO) {
+        //viewModelScope.launch(Dispatchers.IO) {
+        uploadScope.launch {
             try {
                 // 1. Carica su Storage
                 val storageRef = FirebaseStorage.getInstance().reference

@@ -470,8 +470,15 @@ class HomeViewModel(
                 // 2. Salviamo ogni giorno nel DataStore locale
                 querySnapshot.documents.forEach { doc ->
                     val dateIso = doc.id
-                    val steps = doc.getLong("steps")?.toInt() ?: 0
-                    store.saveSteps(uid,dateIso,steps)
+                    val remoteSteps = doc.getLong("steps")?.toInt() ?: 0
+
+
+                    val localSteps = store.getStepsForDateIso(uid, dateIso)
+                    val best = maxOf(localSteps, remoteSteps)
+
+                    if (best != localSteps) {
+                        store.saveSteps(uid, dateIso, best)
+                    }
                 }
 
                 // 3. ricalcoliamo lo streak
