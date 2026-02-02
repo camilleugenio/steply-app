@@ -67,7 +67,7 @@ class StepForegroundService : Service(), SensorEventListener {
 
 
     private var carryStepsToday: Int = 0
-    private var bootBaseFromBoot: Long = 0L
+    private var bootBaseFromBoot: Long = -1L
 
 
     private val serviceJob = SupervisorJob()
@@ -105,6 +105,9 @@ class StepForegroundService : Service(), SensorEventListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent == null || intent.action == ACTION_START) {
+            ensureForegroundStarted()
+        }
         uid = FirebaseAuth.getInstance().currentUser?.uid
         if (intent == null) {
             scope.launch {
@@ -122,6 +125,24 @@ class StepForegroundService : Service(), SensorEventListener {
     override fun onBind(intent: Intent?): IBinder? = null
 
     // -------------------- TRACKING --------------------
+
+    private fun ensureForegroundStarted() {
+        // Always safe to call multiple times
+        val notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_notification_steply)
+            .setColor(0xFFF3A130.toInt())
+            .setColorized(true)
+            .setContentTitle("Steply")
+            .setContentText("Starting step tracking…")
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setOngoing(true)
+            .setShowWhen(false)
+            .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .build()
+
+        startForeground(NOTIF_ID, notification)
+    }
 
     private fun startTracking() {
         Log.d("STEP_SVC", "startTracking uid=$uid listening=$listening")
@@ -225,6 +246,15 @@ class StepForegroundService : Service(), SensorEventListener {
                 val midnight = todayMidnightEpochMillis()
                 val u = uid ?: return@launch
 
+
+                // First callback after service/process start
+                if (dayStart == 0L) {
+                    dayStart = midnight
+                    carryStepsToday = store.getStepsForDayStartEpoch(u, dayStart)
+                    bootBaseFromBoot = currentFromBoot
+                }
+
+
                 // New day: reset carry and set new boot base
                 if (dayStart != midnight) {
                     dayStart = midnight
@@ -233,12 +263,12 @@ class StepForegroundService : Service(), SensorEventListener {
                     store.clearGoalNotifiedIso()
                 }
 
-                // First callback after service/process start
-                if (dayStart == 0L) {
-                    dayStart = midnight
-                    carryStepsToday = store.getStepsForDayStartEpoch(u, dayStart)
+                if (currentFromBoot < bootBaseFromBoot) {
+                    // reboot/sensor reset
                     bootBaseFromBoot = currentFromBoot
+                    carryStepsToday = store.getStepsForDayStartEpoch(u, dayStart)
                 }
+
 
                 // Delta since we (re)started listening
                 val delta = (currentFromBoot - bootBaseFromBoot).coerceAtLeast(0L).toInt()

@@ -42,7 +42,7 @@ fun WeightHistory(navController: NavHostController) {
     val weightUiState by weightViewModel.uiState.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("Daily", "Weekly", "Monthly")
+    val tabs = listOf("Weekly", "Monthly")
 
     var showSheet by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -50,8 +50,8 @@ fun WeightHistory(navController: NavHostController) {
     val filteredHistory = remember(weightUiState.weightHistory, selectedTab) {
         val base = weightUiState.weightHistory.sortedBy { it.timestamp }
         when (selectedTab) {
-            1 -> base.takeLast(7)
-            2 -> base.takeLast(30)
+            0 -> base.takeLast(7)
+            1 -> base.takeLast(30)
             else -> base
         }
     }

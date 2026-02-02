@@ -56,6 +56,7 @@ fun EditProfile(navController: NavHostController) {
     var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
 
     var showExitDialog by remember { mutableStateOf(false) }
+    var currentPassword by remember { mutableStateOf("") }
     var showPasswordDialog by remember { mutableStateOf(false) }
     var newPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -222,18 +223,38 @@ fun EditProfile(navController: NavHostController) {
     // --- DIALOGS (Password) ---
     if (showPasswordDialog) {
         AlertDialog(
-            onDismissRequest = { },
+            onDismissRequest = {
+                showPasswordDialog = false
+                currentPassword = ""
+                newPassword = ""
+                passwordVisible = false
+            },
             title = { Text("Change Password", fontWeight = FontWeight.Bold) },
             text = {
                 Column {
                     OutlinedTextField(
+                        value = currentPassword,
+                        onValueChange = { currentPassword = it },
+                        label = { Text("Current Password") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    OutlinedTextField(
                         value = newPassword,
                         onValueChange = { newPassword = it },
                         label = { Text("New Password") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
                             IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
+                                Icon(
+                                    if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                    contentDescription = null
+                                )
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -241,13 +262,34 @@ fun EditProfile(navController: NavHostController) {
                 }
             },
             confirmButton = {
-                Button(onClick = {
-                    viewModel.changePassword(newPassword, onSuccess = {
-                        Toast.makeText(context, "Password updated!", Toast.LENGTH_SHORT).show()
-                    }, onError = { /* handle error */ })
-                }) { Text("Update") }
+                Button(
+                    enabled = currentPassword.isNotBlank() && newPassword.length >= 6,
+                    onClick = {
+                        viewModel.changePassword(
+                            currentPassword = currentPassword,
+                            newPassword = newPassword,
+                            onSuccess = {
+                                Toast.makeText(context, "Password updated!", Toast.LENGTH_SHORT).show()
+                                showPasswordDialog = false
+                                currentPassword = ""
+                                newPassword = ""
+                                passwordVisible = false
+                            },
+                            onError = { msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            }
+                        )
+                    }
+                ) { Text("Update") }
             },
-            dismissButton = { TextButton(onClick = { }) { Text("Cancel") } }
+            dismissButton = {
+                TextButton(onClick = {
+                    showPasswordDialog = false
+                    currentPassword = ""
+                    newPassword = ""
+                    passwordVisible = false
+                }) { Text("Cancel") }
+            }
         )
     }
 

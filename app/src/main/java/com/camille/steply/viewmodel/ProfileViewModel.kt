@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlin.math.roundToInt
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.auth.EmailAuthProvider
 
 
 data class ProfileUiState(
@@ -184,18 +185,35 @@ class ProfileViewModel : ViewModel() {
             }
     }
 
-    fun changePassword(newPassword: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun changePassword(
+        currentPassword: String,
+        newPassword: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val user = auth.currentUser ?: run {
+            onError("No user logged in")
+            return
+        }
 
-        auth.currentUser?.updatePassword(newPassword)
+        val email = user.email ?: run {
+            onError("Missing email")
+            return
+        }
 
-            ?.addOnCompleteListener { task ->
+        val credential = EmailAuthProvider.getCredential(email, currentPassword)
 
-                if (task.isSuccessful) onSuccess()
-
-                else onError(task.exception?.message ?: "Error updating password")
-
+        user.reauthenticate(credential)
+            .addOnSuccessListener {
+                user.updatePassword(newPassword)
+                    .addOnSuccessListener { onSuccess() }
+                    .addOnFailureListener { e ->
+                        onError(e.message ?: "Error updating password")
+                    }
             }
-
+            .addOnFailureListener { e ->
+                onError("Wrong current password")
+            }
     }
 
     override fun onCleared() {
